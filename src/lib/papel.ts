@@ -1,0 +1,54 @@
+import "server-only";
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+// Módulos que o Admin de usuários distribui (papel por módulo, em
+// user_modules) — os quatro cards do portal fiscal:
+// - tributos: a instância do módulo Tributos (DARFs, Situação Fiscal,
+//   certidões) servida em /tributos por rewrite.
+// - y570: a ferramenta Y570 da ECF (/y570), módulo próprio desde a 0009, com
+//   o histórico no banco (y570_processamentos).
+// - cnpj: a Consulta CNPJ e SN (base cadastral, dado público da Receita),
+//   servida em /cnpj — módulo PRÓPRIO, separado do Tributos, para dar acesso
+//   a um sem dar ao outro (decisão dela, 30/10/2026, replicada da Flórida).
+// - cpf: a Consulta CPF (Serpro, /cpf, servida por este app) — dado pessoal e
+//   consulta COBRADA: papel próprio, e só editor/admin consulta (0011).
+export const MODULOS_ACESSO: { key: string; label: string }[] = [
+  { key: "tributos", label: "Tributos" },
+  { key: "cnpj", label: "Consulta CNPJ" },
+  { key: "y570", label: "Y570 · ECF" },
+  { key: "cpf", label: "Consulta CPF" },
+];
+
+// Papel do usuário logado num módulo qualquer (viewer | editor | admin), ou
+// "nenhum". Admin do portal (papel admin em algum módulo) vale como admin em
+// todos — a mesma régua de ehAdmin() e de pode_gravar_modulo() no banco.
+export async function papelNoModulo(modulo: string): Promise<string> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return "nenhum";
+  const { data } = await supabase
+    .from("user_modules")
+    .select("papel")
+    .eq("modulo", modulo)
+    .maybeSingle();
+  if (data?.papel) return data.papel as string;
+  return (await ehAdmin()) ? "admin" : "nenhum";
+}
+
+// Super-admin de bootstrap (garante acesso ao Admin mesmo sem linha 'admin').
+export const SUPER_ADMIN = "liliane.hiramoto@grupoflorida.com.br";
+
+export async function ehAdmin(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  if ((user.email ?? "").toLowerCase() === SUPER_ADMIN) return true;
+  const { data } = await supabase.from("user_modules").select("papel");
+  return (data ?? []).some((r) => (r as { papel: string }).papel === "admin");
+}
+
+// Bloqueio para rotas de administração de usuários.
+export async function exigeAdmin(): Promise<NextResponse | null> {
+  return (await ehAdmin()) ? null : NextResponse.json({ erro: "apenas administradores" }, { status: 403 });
+}

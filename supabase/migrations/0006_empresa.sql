@@ -1,0 +1,14 @@
+-- Grupo e empresa DESTE portal (o card Cadastros).
+-- No modelo fica em branco; o portal novo troca os <...> e roda no SQL Editor.
+-- Rodar de novo não duplica (on conflict).
+--
+-- insert into public.grupos (nome) values ('<GRUPO>') on conflict (nome) do nothing;
+--
+-- insert into public.empresas
+--   (grupo_id, cnpj, apelido, razao_social, nome_fantasia, situacao, regime, fonte, endereco)
+-- values
+--   ((select id from public.grupos where nome='<GRUPO>'),
+--    '<00.000.000/0000-00>', '<APELIDO>', '<RAZÃO SOCIAL>', '<NOME FANTASIA>', 'ATIVA',
+--    '<Simples|Presumido|Real>', 'manual', '<ENDEREÇO>')
+-- on conflict (cnpj) do nothing;
+select 1;

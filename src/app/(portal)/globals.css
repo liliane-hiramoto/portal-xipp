@@ -1,0 +1,33 @@
+@import "tailwindcss";
+/* As peças do kit-core e do acesso-core moram em src/vendor: o Tailwind tem de
+   varrer a pasta para gerar as classes delas (sem erro nenhum se não varrer). */
+@source "../../vendor";
+
+:root {
+  /* Paleta da MARCA deste portal — troque só estas 6 linhas (ver NOVO-PORTAL.md).
+     O modelo vem em azul-ardósia neutro. Cores de aging/status são semânticas e
+     não mudam com a marca. */
+  --brand: #1e293b;        /* cor escura principal (sidebar, cabeçalho) */
+  --brand-2: #334155;      /* segunda cor do gradiente */
+  --brand-soft: #e2e8f0;   /* tom claro de fundo */
+  --accent: #2563eb;       /* destaque (botões, seleção) */
+  --accent-dk: #1d4ed8;
+  --brand-grad: linear-gradient(165deg, #1e293b 0%, #334155 100%);
+}
+
+/* Fundo de marca (sidebar e cabeçalho) com o gradiente da marca. */
+.brand-bg {
+  background: var(--brand-grad);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: #f1f5f9;
+  color: #0f172a;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Arial, sans-serif;
+}

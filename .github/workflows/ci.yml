@@ -1,0 +1,66 @@
+# ============================================================================
+# CI — o conferente automático de todo PR.
+#
+# Roda no GitHub, sem segredo nenhum e sem tocar a produção:
+#   1. tsc       — os tipos
+#   2. espelhos  — acesso-core e kit-core iguais à fonte, e os testes deles
+#   3. serpro    — a leitura pura da Consulta CPF
+#   4. build     — o mesmo da Vercel, com variáveis de mentira
+#   5. RLS       — supabase/testes/*.sh num Postgres 16 descartável do runner
+#                  (Tributos, CNPJ, Y570 e CPF: quem lê, quem grava)
+#   6. lint      — só AVISO.
+# ============================================================================
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conferir:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: chave-de-mentira
+      SUPABASE_SERVICE_ROLE_KEY: chave-de-mentira
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Tipos (tsc)
+        run: npx tsc --noEmit
+      - name: Acesso (espelho do acesso-core + testes)
+        run: node --experimental-strip-types src/vendor/acesso-core/testar.mjs
+      - name: Kit de tela (espelho do kit-core + testes)
+        run: node --experimental-strip-types src/vendor/kit-core/testar.mjs
+      - name: Teto de peças de tela à mão
+        run: node scripts/conferir-kit.mjs
+      - name: Consulta CPF (Serpro) — leitura pura da resposta
+        run: node --experimental-strip-types scripts/testar-serpro-cpf.mjs
+      - name: SETUP-COMPLETO.sql igual às migrações
+        run: node scripts/montar-setup.mjs --conferir
+      - name: Hoje em São Paulo, nunca em UTC
+        run: node scripts/conferir-hoje.mjs
+      - name: Nenhuma senha fixa no código
+        run: node scripts/conferir-senha.mjs
+      - name: Build
+        run: npm run build
+      - name: RLS em Postgres descartável
+        run: |
+          for t in supabase/testes/*.sh; do
+            echo "::group::$t"; bash "$t" || exit 1; echo "::endgroup::"
+          done
+      - name: Lint (aviso — ainda não barra)
+        continue-on-error: true
+        run: npx eslint .
