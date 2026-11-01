@@ -13,6 +13,8 @@ interface Modulo {
   desc: string;
   ready: boolean;
   semGate?: boolean; // não exige entrada em user_modules (ex.: Cadastros)
+  /** Etiqueta do card que ainda não abre (sem ela, "em breve"). */
+  etiqueta?: string;
 }
 
 /** Rotas que o next.config manda para outro app (rewrites). */
@@ -53,12 +55,17 @@ const MODULOS: Modulo[] = [
   {
     // Consulta CPF no Serpro (v3: CPF + data de nascimento), servida por este
     // app em /cpf. Cada consulta é cobrada: só editor/admin consulta (0011).
+    // FECHADO por pedido dela (01/11/2026): "deixar sem consulta CPF, por
+    // enquanto — pendente Serpro". Reabrir = ready: true e tirar a etiqueta.
+    // ⚠️ O que ela quer é o MUNICÍPIO da pessoa (reforma tributária), e a
+    // Consulta CPF v3 não devolve endereço: conferir o produto antes.
     key: "cpf",
     href: "/cpf",
     icon: "🪪",
     titulo: "Consulta CPF",
     desc: "Situação cadastral do CPF na Receita (Serpro): nome, nome social, nascimento e situação. Consulta por CPF + data de nascimento.",
-    ready: true,
+    ready: false,
+    etiqueta: "pendente Serpro",
   },
   {
     key: "cadastros",
@@ -123,7 +130,7 @@ export default function PortalHub({
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {visiveis.map((m) => {
             const liberado = m.ready;
-            const etiqueta: string | null = m.ready ? null : "em breve";
+            const etiqueta: string | null = m.ready ? null : (m.etiqueta ?? "em breve");
 
             const card = (
               <div
@@ -144,7 +151,7 @@ export default function PortalHub({
                 </div>
                 <p className="mt-1 flex-1 text-sm text-slate-500">{m.desc}</p>
                 <div className={`mt-4 text-sm font-medium ${liberado ? "text-[var(--brand)]" : "text-slate-400"}`}>
-                  {liberado ? "Acessar →" : "Em desenvolvimento"}
+                  {liberado ? "Acessar →" : m.etiqueta ? "Indisponível por enquanto" : "Em desenvolvimento"}
                 </div>
               </div>
             );

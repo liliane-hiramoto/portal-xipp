@@ -38,7 +38,7 @@ Hub com cards por módulo (`src/components/PortalHub.tsx`):
 | Tributos | `/tributos` | instância `<sigla>-tributos-web` do canônico `tributos-web`, servida por rewrite (Multi-Zones) |
 | Consulta CNPJ e SN | `/cnpj` | app compartilhado `cnpj-base-web`; base no banco do portal (`/api/cnpj-base`) |
 | Y570 · ECF | `/y570` | app compartilhado `y570-app`; histórico e PDFs no banco do portal (`/api/y570-base`) |
-| Consulta CPF | `/cpf` | deste app; Serpro v3 (CPF + nascimento), chaves só no servidor |
+| Consulta CPF | `/cpf` | deste app; Serpro v3 (CPF + nascimento), chaves só no servidor. **Card FECHADO, "pendente Serpro"** (01/11/2026, pedido dela) — ⚠️ o que ela quer é o município da pessoa, e a v3 não devolve endereço |
 | Cadastros | `/cadastros` | todo logado lê; admin inclui/exclui empresa (Receita preenche) |
 | Admin de usuários | `/admin` | só admin; papel por módulo |
 
