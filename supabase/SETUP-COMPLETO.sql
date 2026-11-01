@@ -4,17 +4,6 @@
 -- A última tabela que aparece é a conferência do Consulta CPF (true · 2 · 2).
 
 -- ==================== 0001_portal.sql ====================
--- Portal (modelo Conta Azul) — base multi-módulo (hub) no Supabase dedicado.
--- Cada área do portal = um "módulo": 'financeiro', 'tributos', 'expense'.
---
--- Estrutura (tudo em public):
---   profiles       — 1 linha por usuário (auto-criada no signup)
---   user_modules   — quem acessa qual módulo e com qual papel (viewer/editor/admin)
---   module_state   — estado/edições de cada módulo (modulo,key → jsonb), RLS por módulo
---
--- Idempotente: rodar no Supabase → SQL Editor → New query → colar tudo → Run.
-
--- ---------- perfis ----------
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   nome text,
@@ -36,7 +25,6 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- ---------- acesso por módulo ----------
 create table if not exists public.user_modules (
   user_id uuid not null references auth.users(id) on delete cascade,
   modulo  text not null,                  -- 'financeiro' | 'tributos' | 'expense'
@@ -52,7 +40,6 @@ returns boolean language sql stable security definer set search_path = public as
   select exists (select 1 from public.user_modules where user_id = auth.uid() and modulo = m);
 $$;
 
--- ---------- estado dos módulos (edições compartilhadas) ----------
 create table if not exists public.module_state (
   modulo     text not null,
   key        text not null,
@@ -77,14 +64,6 @@ create policy module_state_insert on public.module_state for insert to authentic
 create policy module_state_update on public.module_state for update to authenticated using (public.tem_modulo(modulo)) with check (public.tem_modulo(modulo));
 
 -- ==================== 0002_cadastro.sql ====================
--- Cadastro Central de Grupo/Empresa do Portal.
--- Base ÚNICA consumida por todos os módulos (Financeiro, Tributos, Expense).
--- Relacional Grupo -> Empresa. Leitura: qualquer autenticado. Escrita: só via
--- server actions com service_role (gate de admin no app).
---
--- Idempotente: rodar no Supabase → SQL Editor → New query → colar tudo → Run.
-
--- ---------- grupo econômico ----------
 create table if not exists public.grupos (
   id        bigint generated always as identity primary key,
   nome      text not null unique,
@@ -92,7 +71,6 @@ create table if not exists public.grupos (
   criado_em timestamptz not null default now()
 );
 
--- ---------- empresa (1 linha por CNPJ) ----------
 create table if not exists public.empresas (
   id                bigint generated always as identity primary key,
   grupo_id          bigint references public.grupos(id) on delete set null,
@@ -128,7 +106,6 @@ drop trigger if exists trg_empresas_touch on public.empresas;
 create trigger trg_empresas_touch before update on public.empresas
   for each row execute function public.empresas_touch();
 
--- ---------- RLS ----------
 alter table public.grupos   enable row level security;
 alter table public.empresas enable row level security;
 drop policy if exists grupos_sel   on public.grupos;
@@ -136,29 +113,7 @@ drop policy if exists empresas_sel on public.empresas;
 create policy grupos_sel   on public.grupos   for select to authenticated using (true);
 create policy empresas_sel on public.empresas for select to authenticated using (true);
 
--- =====================================================================
--- SEED — grupo + empresa DESTE portal. O modelo não traz empresa nenhuma:
--- cada portal preenche em supabase/migrations/0006_empresa.sql (ver
--- NOVO-PORTAL.md), para este arquivo continuar igual em todos.
--- =====================================================================
-
 -- ==================== 0004_viewer_so_le.sql ====================
--- ============================================================================
--- 0004 — Quem é "viewer" só LÊ o estado do Financeiro.
---
--- O app grava as edições (reclassificação, Estrutura FC, pendências, de-para…)
--- em module_state DIRETO do navegador (src/lib/store.ts). As políticas de
--- gravação da 0001 pediam só tem_modulo(m) — ter o módulo, com qualquer papel.
--- A tela esconde os botões de quem é viewer, mas o navegador fala com o
--- Supabase direto, e o viewer gravava pela API o que a tela não deixava.
---
--- Mesma régua das rotas de /api (exigeEditor, src/lib/papel.ts): papel editor
--- ou admin no módulo, ou admin (papel admin em qualquer módulo, como ehAdmin).
--- A LEITURA não muda.
---
--- Idempotente.
--- ============================================================================
-
 create or replace function public.pode_gravar_modulo(m text)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
@@ -181,11 +136,6 @@ create policy module_state_update on public.module_state
   for update to authenticated
   using (public.pode_gravar_modulo(modulo)) with check (public.pode_gravar_modulo(modulo));
 
--- CONFERÊNCIA (uma consulta só — o SQL Editor mostra apenas a última).
--- Esperado: as 2 políticas "só editor/admin" e a lista de quem é viewer (essas
--- pessoas continuam lendo e deixam de gravar). Quem NÃO tem linha nenhuma no
--- financeiro aparece também: a partir deste PR essa pessoa não entra mais no
--- Financeiro (antes valia como editor).
 select 'politica de gravação' as o_que, policyname as detalhe,
        case when coalesce(qual,'') || coalesce(with_check,'') like '%pode_gravar_modulo%'
             then 'só editor/admin' else 'AINDA ABERTA A VIEWER' end as regra
@@ -205,60 +155,13 @@ select 'sem linha no financeiro (perde o acesso, salvo se for admin)', u.email,
 order by 1, 2;
 
 -- ==================== 0005_senha_provisoria.sql ====================
--- 0005 — A marca "trocar a senha no 1º acesso" muda de lugar.
---
--- Morava no user_metadata (must_change_password), que o PRÓPRIO usuário grava
--- pela API: quem entrasse com a senha padrão podia apagar a marca e seguir. Agora
--- mora no app_metadata (senha_provisoria), que só a service role grava, e o
--- proxy a cobra em toda rota.
---
--- Esta migração COPIA a marca das contas que ainda não trocaram a senha. Sem
--- ela, essas contas deixariam de ser cobradas quando o código novo entrar.
--- Por isso roda ANTES do merge. Rodar duas vezes não muda nada.
-
 update auth.users
    set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"senha_provisoria": true}'::jsonb
  where raw_user_meta_data ->> 'must_change_password' = 'true';
 
--- Conferência (colada): quem ainda tem de trocar a senha, pelas duas marcas.
---   select email,
---          raw_app_meta_data ->> 'senha_provisoria'      as marca_nova,
---          raw_user_meta_data ->> 'must_change_password' as marca_antiga
---     from auth.users order by email;
-
 -- ==================== 0007_modulo_tributos.sql ====================
--- 0007 — Módulo TRIBUTOS neste portal (30/10/2026, pedido dela — replicado
--- do Portal Flórida, 0204)
---
--- O módulo Tributos (Controle de Tributos Federais: DARFs, Situação Fiscal,
--- certidões, parcelamentos, documentos) é o canônico `tributos-web`. Cada portal
--- tem a SUA instância na Vercel (`<sigla>-tributos-web`, basePath /tributos),
--- servida pelo portal em /tributos (Multi-Zones, rewrite no next.config.ts) e
--- usando ESTE banco. Ver NOVO-PORTAL.md.
---
--- O que esta migração faz:
---   1. trib_is_user()/trib_is_admin() na régua DESTE portal: `user_modules`
---      (tem_modulo / pode_gravar_modulo, 0001 e 0004) + o super-admin. Todas as
---      RLS do módulo passam por essas duas funções, e a tela da instância
---      (src/app/page.tsx de lá) confere o mesmo `user_modules`.
---   2. as tabelas trib_* do canônico (0001, 0003–0006, 0009, 0010 de lá), juntas;
---   3. os buckets `darf-pdfs` e `docs-fiscais`.
---
--- ⚠️ trib_is_admin() = quem pode GRAVAR (importar PDF, limpar, enviar certidão):
--- papel admin ou editor no módulo `tributos`, ou admin do portal (papel admin
--- em algum módulo, como ehAdmin()), ou o super-admin. Leitura (viewer) só lê —
--- "tela que só esconde continua gravando" vale no banco.
--- ⚠️ O card "Tributos" não é linha de tabela aqui: mora em
--- src/components/PortalHub.tsx, e o papel é dado no Admin de usuários.
--- ⚠️ A ferramenta Y570 (menu do Tributos) é app sem login próprio: o proxy do
--- portal só a deixa abrir para quem tem o módulo `tributos`
--- (src/lib/supabase/middleware.ts).
---
--- Pode ser aplicada antes do código. Idempotente.
-
 BEGIN;
 
--- ---------- 1. quem lê e quem grava ----------
 CREATE OR REPLACE FUNCTION public.trib_is_user() RETURNS boolean
   LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
   SELECT public.tem_modulo('tributos')
@@ -278,7 +181,6 @@ REVOKE ALL ON FUNCTION public.trib_is_admin() FROM public;
 GRANT EXECUTE ON FUNCTION public.trib_is_user() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.trib_is_admin() TO authenticated;
 
--- ---------- 2. DARFs ----------
 CREATE TABLE IF NOT EXISTS public.trib_darfs (
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   cnpj             text NOT NULL,
@@ -299,7 +201,6 @@ CREATE TABLE IF NOT EXISTS public.trib_darfs (
 );
 CREATE INDEX IF NOT EXISTS trib_darfs_cnpj_recolh_idx ON public.trib_darfs (cnpj, recolhimento);
 CREATE INDEX IF NOT EXISTS trib_darfs_codigo_idx ON public.trib_darfs (codigo);
--- idempotência do import recorrente (mesmo documento + código + valores)
 CREATE UNIQUE INDEX IF NOT EXISTS trib_darfs_uk
   ON public.trib_darfs (numero_documento, codigo, principal, multa, juros, total);
 
@@ -310,7 +211,6 @@ CREATE POLICY "trib read darfs" ON public.trib_darfs FOR SELECT USING (public.tr
 CREATE POLICY "trib admin write darfs" ON public.trib_darfs
   FOR ALL USING (public.trib_is_admin()) WITH CHECK (public.trib_is_admin());
 
--- ---------- 4. Situação Fiscal (e-CAC), snapshots ----------
 CREATE TABLE IF NOT EXISTS public.trib_fiscal_snapshots (
   id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   cnpj              text NOT NULL,
@@ -337,7 +237,6 @@ CREATE POLICY "trib read fiscal" ON public.trib_fiscal_snapshots FOR SELECT USIN
 CREATE POLICY "trib admin write fiscal" ON public.trib_fiscal_snapshots
   FOR ALL USING (public.trib_is_admin()) WITH CHECK (public.trib_is_admin());
 
--- ---------- 5. Certidões (CNDT, CND FGTS), snapshots ----------
 CREATE TABLE IF NOT EXISTS public.trib_certidoes_snapshots (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tipo          text NOT NULL,
@@ -362,7 +261,6 @@ CREATE POLICY "trib read certidoes" ON public.trib_certidoes_snapshots FOR SELEC
 CREATE POLICY "trib admin write certidoes" ON public.trib_certidoes_snapshots
   FOR ALL USING (public.trib_is_admin()) WITH CHECK (public.trib_is_admin());
 
--- ---------- 6. Duplicidades de DARF: anotações ----------
 CREATE TABLE IF NOT EXISTS public.trib_darf_dup_notes (
   grupo_chave     text PRIMARY KEY,
   comentario      text,
@@ -375,12 +273,9 @@ ALTER TABLE public.trib_darf_dup_notes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "trib read dup notes" ON public.trib_darf_dup_notes;
 DROP POLICY IF EXISTS "trib write dup notes" ON public.trib_darf_dup_notes;
 CREATE POLICY "trib read dup notes" ON public.trib_darf_dup_notes FOR SELECT USING (public.trib_is_user());
--- ⚠️ No canônico qualquer usuário do módulo anota; aqui segue a régua da
--- Flórida ("tela que só esconde continua gravando"): só quem grava anota.
 CREATE POLICY "trib write dup notes" ON public.trib_darf_dup_notes
   FOR ALL USING (public.trib_is_admin()) WITH CHECK (public.trib_is_admin());
 
--- ---------- 7. Parcelamentos ----------
 CREATE TABLE IF NOT EXISTS public.trib_parcelamentos (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   cnpj          text NOT NULL,
@@ -399,7 +294,6 @@ CREATE POLICY "trib read parcelamentos" ON public.trib_parcelamentos FOR SELECT 
 CREATE POLICY "trib admin write parcelamentos" ON public.trib_parcelamentos
   FOR ALL USING (public.trib_is_admin()) WITH CHECK (public.trib_is_admin());
 
--- ---------- 8. Documentos (PDFs originais) ----------
 CREATE TABLE IF NOT EXISTS public.trib_documentos (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tipo          text NOT NULL,
@@ -421,7 +315,6 @@ CREATE POLICY "trib read documentos" ON public.trib_documentos FOR SELECT USING 
 CREATE POLICY "trib admin write documentos" ON public.trib_documentos
   FOR ALL USING (public.trib_is_admin()) WITH CHECK (public.trib_is_admin());
 
--- ---------- 9. Storage: PDFs de DARF e documentos fiscais (privados) ----------
 INSERT INTO storage.buckets (id, name, public) VALUES ('darf-pdfs', 'darf-pdfs', false) ON CONFLICT (id) DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) VALUES ('docs-fiscais', 'docs-fiscais', false) ON CONFLICT (id) DO NOTHING;
 DROP POLICY IF EXISTS "trib read darf pdfs" ON storage.objects;
@@ -439,7 +332,6 @@ CREATE POLICY "trib write docs fiscais" ON storage.objects
 
 COMMIT;
 
--- ---------- conferência (roda colada, uma consulta só) ----------
 SELECT
   (SELECT count(*) FROM pg_proc WHERE proname IN ('trib_is_user', 'trib_is_admin')) AS funcoes_de_2,
   (SELECT count(*) FROM information_schema.tables
@@ -449,31 +341,6 @@ SELECT
   (SELECT count(*) FROM pg_policies WHERE tablename LIKE 'trib\_%') AS politicas_trib;
 
 -- ==================== 0008_cnpj_base.sql ====================
--- 0008 — Consulta CNPJ e SN: módulo próprio e base no banco deste portal
--- (30/10/2026, pedido dela — replicado do Portal Flórida, 0207/0208)
---
--- A ferramenta canônica `cnpj-base-web` (servida em /cnpj pelo rewrite do
--- next.config.ts) guardava a lista de CNPJs só no navegador: trocou de
--- computador ou limpou o histórico, a base sumia. Decisão dela: cada portal
--- guarda a SUA base no SEU banco. A ferramenta chama `/api/cnpj-base` no mesmo
--- endereço do portal (src/app/(portal)/api/cnpj-base/route.ts), com o login de
--- quem está usando, e esta tabela segue a régua do módulo `cnpj`:
---   ler    = cnpj_is_user()  (qualquer papel no módulo `cnpj`, admin do portal
---                             ou o super-admin);
---   gravar = cnpj_is_admin() (papel admin/editor no `cnpj`, admin do portal
---                             ou o super-admin). Leitura (viewer) só lê.
---
--- `cnpj` é módulo PRÓPRIO, fora do Tributos: base cadastral é dado público da
--- Receita (cartão CNPJ, sócios, Simples, SIMEI, IBS/CBS); o Tributos guarda
--- dado fiscal sigiloso. O card e o papel são dados no Admin de usuários.
---
--- Uma linha por CNPJ. `registro` é o resultado da consulta (o "cartão CNPJ"
--- achatado da ferramenta); nulo enquanto o CNPJ está pendente de consulta.
--- "Limpar base" na ferramenta apaga a base do PORTAL, para todos.
---
--- Pode ser aplicada antes ou depois do código: sem a tabela, a rota responde
--- "indisponível" e a ferramenta continua salvando no navegador. Idempotente.
-
 BEGIN;
 
 CREATE OR REPLACE FUNCTION public.cnpj_is_user() RETURNS boolean
@@ -516,7 +383,6 @@ CREATE POLICY "cnpj write base" ON public.trib_cnpj_base
 
 COMMIT;
 
--- ---------- conferência (roda colada, uma consulta só) ----------
 SELECT
   (SELECT count(*) FROM information_schema.tables
     WHERE table_schema = 'public' AND table_name = 'trib_cnpj_base') AS tabela_existe,
@@ -526,31 +392,6 @@ SELECT
   (SELECT count(*) FROM public.trib_cnpj_base) AS cnpjs_na_base;
 
 -- ==================== 0009_modulo_y570.sql ====================
--- 0009 — Y570 vira módulo próprio, com histórico no banco deste portal
--- (30/10/2026, pedido dela — replicado do Portal Flórida, 0212)
---
--- A ferramenta Y570 (y570-fonte-pagadora, servida em /y570) lê os PDFs de
--- Fontes Pagadoras do e-CAC e gera o registro Y570 da ECF em Excel. Estava no
--- menu do Tributos (módulo `tributos`) e não guardava nada. Pedido dela: card
--- próprio (como a Consulta CNPJ e SN, 0008) e o resultado salvo no banco de
--- cada portal.
---
--- A ferramenta chama `/api/y570-base` no MESMO endereço do portal
--- (src/app/(portal)/api/y570-base/route.ts), com o login de quem usa. Grava UMA
--- linha por empresa (CNPJ raiz) por processamento, com as linhas lidas (fonte
--- pagadora, código, rendimento, retido) — os PDFs não são guardados. Pelo
--- histórico, a ferramenta gera o Excel de novo a partir dessas linhas.
---
--- Régua do módulo `y570` em user_modules (como o Tributos, 0007):
---   ler    = y570_is_user()  (qualquer papel, admin do portal ou o super-admin);
---   gravar = y570_is_admin() (papel admin/editor, admin do portal ou o super-admin).
--- ⚠️ É dado fiscal (IR retido na fonte). Sem UPDATE pela tela; apagar, só
--- admin/editor. O card e o papel são dados no Admin de usuários; o proxy
--- tranca /y570 pelo módulo `y570` (quem tinha só o Tributos perde o Y570 até
--- ganhar o módulo novo — é o objetivo).
---
--- Pode ser aplicada antes ou depois do código. Idempotente.
-
 BEGIN;
 
 CREATE OR REPLACE FUNCTION public.y570_is_user() RETURNS boolean
@@ -596,7 +437,6 @@ CREATE POLICY "y570 delete" ON public.y570_processamentos FOR DELETE TO authenti
 
 COMMIT;
 
--- ---------- conferência (roda colada, uma consulta só) ----------
 SELECT
   (SELECT count(*) FROM pg_proc WHERE proname IN ('y570_is_user', 'y570_is_admin')) AS funcoes_de_2,
   (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.y570_processamentos'::regclass) AS rls_ligada,
@@ -604,27 +444,6 @@ SELECT
   (SELECT count(*) FROM public.y570_processamentos) AS processamentos;
 
 -- ==================== 0010_y570_pdfs_e_cadastro.sql ====================
--- 0010 — Y570: guarda os PDFs e só aceita empresa cadastrada (30/10/2026, pedido dela)
---
--- Roda DEPOIS do 0009_modulo_y570.sql. Quatro pedidos sobre o card Y570:
---   1. "Guardar o pdf do y570 no portal" → bucket PRIVADO `y570-pdfs`, um
---      arquivo por PDF importado, em `<raiz>/<id do processamento>/<n>.pdf`
---      (n = posição em `arquivos`). Baixa-se pelo histórico da ferramenta.
---   2. "Excluir doc importado (empresa errada)" → DELETE no bucket também, para
---      os PDFs saírem junto com o processamento.
---   3. "Só empresas cadastradas no portal; não permitir subir PDF de outras" →
---      `y570_raiz_cadastrada(raiz)` entra na política de INSERT da tabela E do
---      bucket. A ferramenta avisa antes, mas quem barra é o banco.
---   4. "Uma aba por empresa" → `y570_empresas_cadastradas()` dá o nome de cada
---      raiz cadastrada.
---
--- "Cadastrada" = CNPJ em `public.empresas` (Cadastros › Empresas), pela RAIZ (8
--- primeiros dígitos): matriz e filiais juntas, como a ferramenta agrupa.
--- Mesmo desenho da 0213 do Portal Flórida.
---
--- ⚠️ O código pode entrar antes deste SQL: sem as funções, a rota não filtra e
--- avisa que os PDFs não foram guardados.
-
 begin;
 
 create or replace function public.y570_raiz_cadastrada(p_raiz text) returns boolean
@@ -635,7 +454,6 @@ create or replace function public.y570_raiz_cadastrada(p_raiz text) returns bool
        and length(regexp_replace(coalesce(cnpj, ''), '\D', '', 'g')) = 14);
 $$;
 
--- Lista para a ferramenta: só quem tem o módulo enxerga (devolve vazio aos demais).
 create or replace function public.y570_empresas_cadastradas()
   returns table (raiz text, nome text)
   language sql stable security definer set search_path = public as $$
@@ -648,17 +466,11 @@ $$;
 revoke all on function public.y570_empresas_cadastradas() from public;
 grant execute on function public.y570_empresas_cadastradas() to authenticated;
 
--- Tabela: gravar exige papel E empresa cadastrada.
--- ⚠️ O nome é o da 0009 ("y570 insert", com espaço). Política com outro nome
--- ficaria valendo JUNTO com a antiga (políticas se somam por OU), e a trava do
--- cadastro não barraria nada — o y570_insert da primeira versão deste arquivo
--- caía nisso, e o teste (supabase/testes/tributos.sh) pegou.
 drop policy if exists y570_insert on public.y570_processamentos;
 drop policy if exists "y570 insert" on public.y570_processamentos;
 create policy "y570 insert" on public.y570_processamentos for insert to authenticated
   with check (public.y570_is_admin() and public.y570_raiz_cadastrada(raiz));
 
--- Bucket privado dos PDFs (até 4 MB cada, só PDF).
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('y570-pdfs', 'y570-pdfs', false, 4194304, array['application/pdf'])
 on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit,
@@ -677,7 +489,6 @@ create policy y570_pdfs_delete on storage.objects for delete to authenticated
 
 commit;
 
--- ---------- conferência (roda colada, uma consulta só) ----------
 select
   (select count(*) from storage.buckets where id = 'y570-pdfs' and not public) as bucket_privado,
   (select count(*) from pg_policies where schemaname = 'storage' and policyname like 'y570_pdfs%') as politicas_pdf_de_3,
@@ -687,25 +498,6 @@ select
      where length(regexp_replace(coalesce(cnpj, ''), '\D', '', 'g')) = 14) as raizes_cadastradas;
 
 -- ==================== 0011_consulta_cpf.sql ====================
--- 0011 — Consulta CPF (Serpro), card próprio (réplica da 0211 do Portal Flórida)
---
--- A consulta é CPF + DATA DE NASCIMENTO (Consulta CPF v3 do Serpro) e devolve
--- nome, nome social, nascimento, situação cadastral e datas de inscrição e
--- atualização. NÃO devolve endereço — nenhum serviço do Serpro entrega o
--- endereço da pessoa física.
---
--- Quem chama o Serpro é o SERVIDOR (src/app/(portal)/api/cpf/route.ts), com as
--- chaves do contrato nas variáveis da Vercel — nunca o navegador. Cada consulta
--- é COBRADA (respostas 200, 206 e 404), por isso consultar exige papel
--- editor/admin no módulo `cpf`; viewer só vê o histórico.
---
--- Régua do módulo `cpf` em user_modules (como o Y570, 0009):
---   ler    = cpf_is_user()  (qualquer papel, admin do portal ou o super-admin);
---   gravar = cpf_is_admin() (papel editor/admin, admin do portal ou o super-admin).
--- ⚠️ Dado pessoal (LGPD). Só INSERT: o histórico não se edita nem se apaga.
---
--- Pode ser aplicada antes ou depois do código. Idempotente.
-
 BEGIN;
 
 CREATE OR REPLACE FUNCTION public.cpf_is_user() RETURNS boolean
@@ -753,7 +545,6 @@ CREATE POLICY cpf_insert ON public.cpf_consultas FOR INSERT TO authenticated WIT
 
 COMMIT;
 
--- ---------- conferência (roda colada, uma consulta só) ----------
 SELECT
   (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.cpf_consultas'::regclass) AS rls_ligada,
   (SELECT count(*) FROM pg_policies WHERE tablename = 'cpf_consultas') AS politicas_de_2,

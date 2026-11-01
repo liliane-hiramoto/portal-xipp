@@ -14,7 +14,10 @@ const SAIDA = "supabase/SETUP-COMPLETO.sql";
 const fora = new Set(["0006_empresa.sql"]);
 const arquivos = readdirSync(DIR).filter((f) => /^\d{4}_.*\.sql$/.test(f) && !fora.has(f)).sort();
 
-const partes = arquivos.map((f) => `-- ==================== ${f} ====================\n${readFileSync(`${DIR}/${f}`, "utf8").trim()}\n`);
+// Sem as linhas só de comentário (a explicação mora em cada migração): o
+// arquivo é colado no chat e no SQL Editor, e assim fica com metade do tamanho.
+const semComentario = (sql) => sql.split("\n").filter((l) => !/^\s*--/.test(l)).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+const partes = arquivos.map((f) => `-- ==================== ${f} ====================\n${semComentario(readFileSync(`${DIR}/${f}`, "utf8"))}\n`);
 const texto = `-- SETUP COMPLETO do portal fiscal — GERADO por scripts/montar-setup.mjs, não edite.
 -- Cole tudo no Supabase › SQL Editor do portal novo e clique em Run (uma vez).
 -- Junta, na ordem: ${arquivos.join(", ")}.
