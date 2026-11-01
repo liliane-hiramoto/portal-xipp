@@ -68,6 +68,6 @@ sobe na `main`.
 
 ### Primeiro acesso
 1. Entrar com o super-admin › **Cadastros** › incluir as empresas pelo CNPJ.
-2. **Admin de usuários** › criar cada pessoa com o papel em cada módulo
-   (Tributos, Consulta CNPJ, Y570, Consulta CPF — Somente leitura, Editor ou
-   Admin). A senha provisória aparece uma vez.
+2. **Acessos** › **+ Novo usuário** para cada pessoa (com um perfil, ou o papel
+   módulo a módulo na ficha — Somente leitura, Editor ou Admin). A senha
+   provisória aparece uma vez.
