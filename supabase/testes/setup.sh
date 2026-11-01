@@ -45,5 +45,7 @@ done
 tab=$(Q -tAc "select count(*) from pg_tables where schemaname = 'public' and tablename in ('user_modules','empresas','trib_darfs','trib_cnpj_base','y570_processamentos','cpf_consultas');")
 bkt=$(Q -tAc "select count(*) from storage.buckets where id in ('darf-pdfs','docs-fiscais','y570-pdfs') and not public;")
 semrls=$(Q -tAc "select count(*) from pg_tables where schemaname = 'public' and not rowsecurity;")
-echo "tabelas: $tab/6 · buckets privados: $bkt/3 · tabelas sem RLS: $semrls"
-[ "$tab" = 6 ] && [ "$bkt" = 3 ] && [ "$semrls" = 0 ] && echo "✅ SETUP-COMPLETO.sql: aplica duas vezes, tudo com RLS" || { echo "❌ SETUP-COMPLETO.sql"; exit 1; }
+# 0012: perfis de acesso só pelo servidor (RLS sem política nenhuma) e os 2 de exemplo.
+perf=$(Q -tAc "select (select count(*) from public.perfis_acesso) || '/' || (select count(*) from public.perfil_acesso_itens) || '/' || (select count(*) from pg_policies where tablename in ('perfis_acesso','perfil_acesso_itens'));")
+echo "tabelas: $tab/6 · buckets privados: $bkt/3 · tabelas sem RLS: $semrls · perfis/itens/políticas: $perf"
+[ "$tab" = 6 ] && [ "$bkt" = 3 ] && [ "$semrls" = 0 ] && [ "$perf" = "2/6/0" ] && echo "✅ SETUP-COMPLETO.sql: aplica duas vezes, tudo com RLS" || { echo "❌ SETUP-COMPLETO.sql"; exit 1; }

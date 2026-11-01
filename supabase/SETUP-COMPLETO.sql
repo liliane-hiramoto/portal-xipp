@@ -1,6 +1,6 @@
 -- SETUP COMPLETO do portal fiscal — GERADO por scripts/montar-setup.mjs, não edite.
 -- Cole tudo no Supabase › SQL Editor do portal novo e clique em Run (uma vez).
--- Junta, na ordem: 0001_portal.sql, 0002_cadastro.sql, 0004_viewer_so_le.sql, 0005_senha_provisoria.sql, 0007_modulo_tributos.sql, 0008_cnpj_base.sql, 0009_modulo_y570.sql, 0010_y570_pdfs_e_cadastro.sql, 0011_consulta_cpf.sql.
+-- Junta, na ordem: 0001_portal.sql, 0002_cadastro.sql, 0004_viewer_so_le.sql, 0005_senha_provisoria.sql, 0007_modulo_tributos.sql, 0008_cnpj_base.sql, 0009_modulo_y570.sql, 0010_y570_pdfs_e_cadastro.sql, 0011_consulta_cpf.sql, 0012_perfis_acesso.sql.
 -- A última tabela que aparece é a conferência do Consulta CPF (true · 2 · 2).
 
 -- ==================== 0001_portal.sql ====================
@@ -549,3 +549,46 @@ SELECT
   (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.cpf_consultas'::regclass) AS rls_ligada,
   (SELECT count(*) FROM pg_policies WHERE tablename = 'cpf_consultas') AS politicas_de_2,
   (SELECT count(*) FROM pg_proc WHERE proname IN ('cpf_is_user', 'cpf_is_admin')) AS funcoes_de_2;
+
+-- ==================== 0012_perfis_acesso.sql ====================
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS public.perfis_acesso (
+  id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  nome       text NOT NULL UNIQUE,
+  descricao  text,
+  ordem      int NOT NULL DEFAULT 0,
+  ativo      boolean NOT NULL DEFAULT true,
+  criado_em  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.perfil_acesso_itens (
+  perfil_id  bigint NOT NULL REFERENCES public.perfis_acesso(id) ON DELETE CASCADE,
+  modulo     text NOT NULL CHECK (modulo IN ('tributos', 'cnpj', 'y570', 'cpf')),
+  papel      text NOT NULL CHECK (papel IN ('viewer', 'editor', 'admin')),
+  PRIMARY KEY (perfil_id, modulo)
+);
+
+ALTER TABLE public.perfis_acesso       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.perfil_acesso_itens ENABLE ROW LEVEL SECURITY;
+
+INSERT INTO public.perfis_acesso (nome, descricao, ordem) VALUES
+  ('Fiscal — editor', 'Quem importa DARF, situação fiscal e PDFs do Y570 e mantém a base de CNPJs.', 1),
+  ('Consulta — somente leitura', 'Vê Tributos, Y570 e Consulta CNPJ, sem gravar nada.', 2)
+ON CONFLICT (nome) DO NOTHING;
+
+INSERT INTO public.perfil_acesso_itens (perfil_id, modulo, papel)
+SELECT p.id, i.modulo, i.papel
+  FROM public.perfis_acesso p
+  JOIN (VALUES
+    ('Fiscal — editor', 'tributos', 'editor'), ('Fiscal — editor', 'y570', 'editor'), ('Fiscal — editor', 'cnpj', 'editor'),
+    ('Consulta — somente leitura', 'tributos', 'viewer'), ('Consulta — somente leitura', 'y570', 'viewer'), ('Consulta — somente leitura', 'cnpj', 'viewer')
+  ) AS i(perfil, modulo, papel) ON i.perfil = p.nome
+ON CONFLICT (perfil_id, modulo) DO NOTHING;
+
+COMMIT;
+
+SELECT
+  (SELECT count(*) FROM public.perfis_acesso) AS perfis,
+  (SELECT count(*) FROM pg_policies WHERE tablename IN ('perfis_acesso', 'perfil_acesso_itens')) AS politicas_de_0,
+  (SELECT bool_and(relrowsecurity) FROM pg_class WHERE oid IN ('public.perfis_acesso'::regclass, 'public.perfil_acesso_itens'::regclass)) AS rls_ligada;

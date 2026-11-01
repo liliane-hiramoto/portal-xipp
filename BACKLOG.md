@@ -12,10 +12,11 @@
   PDF, aba por empresa, exclusão).
 - **Cadastro de empresas**: só incluir e excluir. Editar uma empresa = excluir
   e incluir de novo. Grupo econômico não se escolhe na tela.
-- **Lint**: 1 erro antigo no `AdminUsuarios.tsx` (setState dentro de efeito),
-  herdado do modelo Conta Azul. O lint é só aviso no CI.
 
 ## Concluído
+- ✅ 01/11/2026 — Acessos no modelo da Flórida (Pessoas, Por módulo, Perfis —
+  0012); o Admin de usuários antigo saiu, e com ele o último erro de lint.
+- ✅ 01/11/2026 — Consulta CPF com o card fechado, "pendente Serpro".
 - ✅ 01/11/2026 — Modelo criado: login (acesso-core), Admin por módulo
   (Tributos, CNPJ, Y570, CPF), Cadastro com inclusão pela Receita, os quatro
   cards e o `SETUP-COMPLETO.sql` num arquivo só.

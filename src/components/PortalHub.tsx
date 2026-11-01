@@ -78,10 +78,10 @@ const MODULOS: Modulo[] = [
   },
   {
     key: "admin",
-    href: "/admin",
+    href: "/acessos",
     icon: "🔐",
-    titulo: "Admin de usuários",
-    desc: "Acessos centralizados e papel por módulo de cada usuário.",
+    titulo: "Acessos",
+    desc: "Quem entra no portal e o papel em cada módulo: pessoas, visão por módulo e perfis de acesso.",
     ready: true,
   },
 ];

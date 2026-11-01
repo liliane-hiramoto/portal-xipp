@@ -40,7 +40,7 @@ Hub com cards por módulo (`src/components/PortalHub.tsx`):
 | Y570 · ECF | `/y570` | app compartilhado `y570-app`; histórico e PDFs no banco do portal (`/api/y570-base`) |
 | Consulta CPF | `/cpf` | deste app; Serpro v3 (CPF + nascimento), chaves só no servidor. **Card FECHADO, "pendente Serpro"** (01/11/2026, pedido dela) — ⚠️ o que ela quer é o município da pessoa, e a v3 não devolve endereço |
 | Cadastros | `/cadastros` | todo logado lê; admin inclui/exclui empresa (Receita preenche) |
-| Admin de usuários | `/admin` | só admin; papel por módulo |
+| Acessos | `/acessos` | só admin; o modelo da Flórida (01/11/2026): **Pessoas** (lista + ficha do login), **Por módulo** e **Perfis de acesso** (0012). `/admin` redireciona para cá |
 
 **Identidade** = `src/config/portal.ts` + as 6 cores de `:root` em
 `src/app/(portal)/globals.css` + `public/`. Nome de empresa escrito à mão em
@@ -62,10 +62,12 @@ tela é bug: vai para o `portal.ts`.
     barraria nada — já aconteceu no `portal-ca-modelo`;
   - CPF (0011): `cpf_is_user()` lê, `cpf_is_admin()` consulta (cada consulta é
     COBRADA; a rota confere o papel ANTES de chamar o Serpro). Só INSERT.
+  - Perfis de acesso (0012): RLS ligada e NENHUMA política — só a rota
+    `/api/acessos` (service role, depois de `exigeAdmin()`) lê e grava.
   Provado em `supabase/testes/tributos.sh` (CI).
 - As rotas `/api/cnpj-base`, `/api/y570-base` e `/api/cpf` usam a **sessão de
   quem usa** (nada de service role): quem decide é a RLS. A service role só
-  aparece no Admin de usuários e no Cadastros (`actions.ts`), sempre DEPOIS de
+  aparece em Acessos (`/api/acessos`) e no Cadastros (`actions.ts`), sempre DEPOIS de
   `ehAdmin()`/`exigeAdmin()`. A tabela `empresas` só tem política de leitura.
 - Senha provisória sorteada e cobrada em toda rota (0005); login, troca de
   senha, `/auth/callback` e sessão vêm do `liliane-hiramoto/acesso-core`
