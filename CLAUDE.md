@@ -109,9 +109,8 @@ Tela nova usa o kit (`<Kpi>`, `<Tabela>`, `<Aba>`/`<TiraAbas>`…).
   → espelho em `.npmrc` (registry.yarnpkg.com); `npm install` em foreground.
 
 ## Xipp — o que é só deste portal
-- Identidade: `src/config/portal.ts` ("Portal Xipp"). ⚠️ Cores e logo ainda
-  são os PROVISÓRIOS do modelo (azul-ardósia e o nome em texto): o site do
-  cliente estava fora da rede da sessão em 01/11/2026. Trocar quando a usuária
-  mandar o logo e a cor.
+- Identidade: `src/config/portal.ts` ("Portal Xipp"). Marca tirada do site
+  xipp.com.br (print da usuária, 04/11/2026): grafite do site #26272e, cinza da barra #505256 e o verde neon dos destaques (escurecido para #03c96a, porque o #03ff83 do site some no fundo branco). Logo branco em
+  `public/logo-branco.png`.
 - Instância do Tributos: `xipp-tributos-web` (`tributosApp` no `portal.ts`).
 - Supabase e Vercel próprios (`portal-xipp`), região São Paulo.
