@@ -10,6 +10,8 @@ o que os cinco portais fazem igual.
 | `rotas.ts` | `linkDoEmail()` para `/auth/callback` e `sair()` para `/logout` | servidor |
 | `sessao.ts` | `atualizarSessao()`, `redirecionar()`, `rotaDeAcesso()`, `cobrarTrocaDeSenha()` para o `src/proxy.ts` | servidor (proxy) |
 | `senha.ts` | regras puras: senha mínima, senha provisória sorteada, a marca de troca, destino seguro, `avisoDoLogin()` | os dois |
+| `vigia.tsx` | `<SaidaPorInatividade regra={…}>`: sai depois de um tempo parado; vai uma vez no layout raiz | navegador |
+| `inatividade.ts` | regras puras da saída: minutos por rota (curto é o padrão), atividade compartilhada entre abas | os dois |
 
 **Sem barril (`index.ts`) de propósito:** a tela é do navegador e as rotas são
 do servidor; um índice só levaria código de servidor para o `.js` público.

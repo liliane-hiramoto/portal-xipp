@@ -15,7 +15,6 @@
 // `avisoDoLogin` vem de ./senha, não daqui: a página é do servidor, e função
 // de arquivo "use client" não pode ser chamada de lá.
 import { useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { erroSenhaNova, destinoSeguro } from "./senha";
 
@@ -67,19 +66,60 @@ function Moldura({ marca, subtitulo, aviso, children }: { marca: Marca; subtitul
   );
 }
 
+// O "olho" do campo de senha (pedido dela, 04/11/2026, para todos os portais):
+// mostra o que foi digitado, para conferir antes de entrar. Ícone em SVG inline
+// pelo mesmo motivo do estilo inline (nada de classe de fora).
+function Olho({ aberto }: { aberto: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+      {!aberto && <line x1="3" y1="3" x2="21" y2="21" />}
+    </svg>
+  );
+}
+
 function Campo(p: { rotulo: string; tipo: string; valor: string; muda: (v: string) => void; auto: string; foco?: boolean }) {
+  const [ver, setVer] = useState(false);
+  const senha = p.tipo === "password";
   return (
     <label style={{ display: "block" }}>
       <span style={S.rotulo}>{p.rotulo}</span>
-      <input type={p.tipo} required autoComplete={p.auto} autoFocus={p.foco} value={p.valor}
-        onChange={(e) => p.muda(e.target.value)} style={S.campo} />
+      <span style={{ position: "relative", display: "block" }}>
+        <input type={senha && ver ? "text" : p.tipo} required autoComplete={p.auto} autoFocus={p.foco} value={p.valor}
+          onChange={(e) => p.muda(e.target.value)} style={senha ? { ...S.campo, paddingRight: 40 } : S.campo} />
+        {senha && (
+          <button type="button" onClick={() => setVer((v) => !v)} aria-label={ver ? "Ocultar senha" : "Mostrar senha"} title={ver ? "Ocultar senha" : "Mostrar senha"}
+            style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: 0, padding: 6, cursor: "pointer", color: "#64748b", display: "flex" }}>
+            <Olho aberto={ver} />
+          </button>
+        )}
+      </span>
     </label>
   );
 }
 
+/**
+ * Depois da senha aceita: uma navegação COMPLETA, como digitar o endereço e
+ * apertar Enter — e não `router.push` + `router.refresh`.
+ *
+ * A navegação de dentro da página (a do router) não tem prazo nem erro: se a
+ * página seguinte demorava (a Vercel "acordando" logo depois de uma
+ * publicação) ou falhava no caminho, o botão ficava em "Entrando…" para
+ * sempre, sem aviso nenhum — foi o print da usuária em 19/10/2026. Na
+ * navegação completa quem cuida da espera é o navegador (com a barra de
+ * carregamento e a página de erro dele), o cookie da sessão nova vai junto com
+ * certeza, e o proxy decide o destino. Era o que o login antigo fazia, com o
+ * `redirect("/")` da Server Action.
+ *
+ * O `ocupado` não volta a `false` de propósito: a página vai ser trocada.
+ */
+function irPara(destino: string) {
+  window.location.assign(destino);
+}
+
 // ---- entrar -----------------------------------------------------------------
 export function TelaLogin({ marca, aviso, destino }: { marca: Marca; aviso?: string; destino?: string }) {
-  const router = useRouter();
   const cor = marca.cor ?? "var(--brand, #0f172a)";
   const [modo, setModo] = useState<"entrar" | "esqueci">("entrar");
   const [email, setEmail] = useState("");
@@ -93,8 +133,7 @@ export function TelaLogin({ marca, aviso, destino }: { marca: Marca; aviso?: str
     setOcupado(true); setErro(null);
     const { error } = await cliente().auth.signInWithPassword({ email: email.trim(), password: senha });
     if (error) { setOcupado(false); setErro("E-mail ou senha incorretos."); return; }
-    router.push(destinoSeguro(destino));
-    router.refresh();
+    irPara(destinoSeguro(destino));
   }
 
   async function pedirLink(e: FormEvent) {
@@ -141,7 +180,6 @@ export function TelaLogin({ marca, aviso, destino }: { marca: Marca; aviso?: str
  * direto pelo navegador.
  */
 export function TelaTrocarSenha({ marca, rota, destino }: { marca: Marca; rota?: string; destino?: string }) {
-  const router = useRouter();
   const cor = marca.cor ?? "var(--brand, #0f172a)";
   const [senha, setSenha] = useState("");
   const [conf, setConf] = useState("");
@@ -165,8 +203,7 @@ export function TelaTrocarSenha({ marca, rota, destino }: { marca: Marca; rota?:
       if (error) falha = /different|same/i.test(error.message) ? "A senha nova tem de ser diferente da atual." : error.message;
     }
     if (falha) { setOcupado(false); setErro(falha); return; }
-    router.push(destinoSeguro(destino));
-    router.refresh();
+    irPara(destinoSeguro(destino));
   }
 
   return (

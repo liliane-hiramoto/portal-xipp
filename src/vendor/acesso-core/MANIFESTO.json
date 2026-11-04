@@ -1,12 +1,16 @@
 {
   "fonte": "liliane-hiramoto/acesso-core",
   "arquivos": {
-    "README.md": "f3edf7acb113fac7a6cc44470b2988db4d7d32435d82b522786382f5a4e2f3cf",
+    "README.md": "92321924b5ee69cbd46a5a775f2aedb2030a0ceae9e25ec0a238d77b9aa56a96",
+    "inatividade.teste.mjs": "4b3c527c9052ac823b1530476aed45409c3d9c1d07a9274b792ec3392a87e31c",
+    "inatividade.ts": "c973704dd0756e9dedc3237f8ce4daf52967fe444b9e40b8a792b211340341f2",
+    "navegacao.teste.mjs": "02fd5e17eee2e9897cadbe32310161ce19e4e0de8bbfacfb3fd46b036a4b782f",
     "rotas.ts": "519e6d02e829d1b0e738131be6d18fcbfcc207b8cf7024cd78fcb9748d235ca7",
     "senha.teste.mjs": "4213acec759e490449d6000880f328d3130c5081417f673d1e27a6448e7ceb58",
     "senha.ts": "f87313bd10bbaf6a171d11248a434fac49a4ff20331ad74f3fc80567c80d0cb6",
     "sessao.ts": "ab4cded7c8b4c2290f5460a01509530cd08d7efe4452ddf1e17e0ff8af3eea77",
-    "telas.tsx": "b52fd0b3430af77bd460d53b0136ae7afbf730c7e12e742a2c56eb568c048b07",
-    "testar.mjs": "0425172c926800bc3a38ce1f0e9ddd2698deaec5fb1f1a07b5fb0402a0c9223c"
+    "telas.tsx": "8b293e42ebce49d499399ecf46713f49d53101709aab3c8eff03cf1d24d06cb7",
+    "testar.mjs": "0425172c926800bc3a38ce1f0e9ddd2698deaec5fb1f1a07b5fb0402a0c9223c",
+    "vigia.tsx": "6949e98f0f51b4a6a1a89ce50becceb0f20cd48af6a644d1fd45359f401f704f"
   }
 }
