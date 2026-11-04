@@ -12,13 +12,13 @@ export const PORTAL = {
   /** Grupo de empresas (card Cadastros). */
   grupo: "Grupo Xipp",
   /** Logo branco (fica sobre o fundo de marca) e ícone da aba, em public/. */
-  logo: "/logo-branco.svg",
+  logo: "/logo-branco.png",
   favicon: "/favicon.svg",
   /** Prefixo das chaves que este portal guarda no navegador (localStorage). */
   prefixoLocal: "xipp",
   /** Cor da marca em hex SEM "#": a Consulta CNPJ (/cnpj?brand=…) pinta a
    *  ferramenta com ela. Igual ao `--brand` do globals.css. */
-  brandHex: "1e293b",
+  brandHex: "26272e",
   /** Endereço na Vercel da INSTÂNCIA do módulo Tributos deste portal (cópia do
    *  canônico tributos-web, basePath /tributos). O next.config.ts serve
    *  `/tributos` daqui por rewrite (Multi-Zones). Ver NOVO-PORTAL.md. */

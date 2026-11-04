@@ -4,15 +4,13 @@
 @source "../../vendor";
 
 :root {
-  /* Paleta da MARCA deste portal — troque só estas 6 linhas (ver NOVO-PORTAL.md).
-     O modelo vem em azul-ardósia neutro. Cores de aging/status são semânticas e
-     não mudam com a marca. */
-  --brand: #1e293b;        /* cor escura principal (sidebar, cabeçalho) */
-  --brand-2: #334155;      /* segunda cor do gradiente */
-  --brand-soft: #e2e8f0;   /* tom claro de fundo */
-  --accent: #2563eb;       /* destaque (botões, seleção) */
-  --accent-dk: #1d4ed8;
-  --brand-grad: linear-gradient(165deg, #1e293b 0%, #334155 100%);
+  /* Paleta da Xipp (xipp.com.br, print da usuária, 04/11/2026): grafite do site #26272e, cinza da barra #505256 e o verde neon dos destaques (escurecido para #03c96a, porque o #03ff83 do site some no fundo branco). */
+  --brand: #26272e;        /* cor escura principal (sidebar, cabeçalho) */
+  --brand-2: #505256;      /* segunda cor do gradiente */
+  --brand-soft: #e8fbf1;   /* tom claro de fundo */
+  --accent: #03c96a;       /* destaque (botões, seleção) */
+  --accent-dk: #029c52;
+  --brand-grad: linear-gradient(165deg, #26272e 0%, #505256 100%);
 }
 
 /* Fundo de marca (sidebar e cabeçalho) com o gradiente da marca. */
