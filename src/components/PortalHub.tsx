@@ -94,11 +94,15 @@ export default function PortalHub({
   modulos: Record<string, string>;
 }) {
   const router = useRouter();
-  const ehAdmin = userEmail === "liliane.hiramoto@grupoflorida.com.br" || Object.values(modulos).includes("admin");
+  const ehAdmin = userEmail.toLowerCase() === "liliane.hiramoto@grupoflorida.com.br" || Object.values(modulos).includes("admin");
 
   // Só mostra as caixinhas que o usuário tem acesso: módulo em user_modules,
   // Cadastros (semGate = todos) e Admin (só quem tem papel admin).
-  const temAcesso = (m: Modulo) => (m.key === "admin" ? ehAdmin : m.semGate ? true : m.key in modulos);
+  // O admin do portal (e a super-admin) vê TODOS os cards: o proxy e a RLS já
+  // o deixam entrar em todo módulo. Antes só via os módulos com linha própria
+  // em user_modules, e a super-admin — que não tem linha nenhuma — só via
+  // Cadastros e Admin (achado no Portal Benevix, 04/11/2026).
+  const temAcesso = (m: Modulo) => (ehAdmin ? true : m.semGate ? true : m.key in modulos);
   const visiveis = MODULOS.filter(temAcesso);
 
   async function sair() {
