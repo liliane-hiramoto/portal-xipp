@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 //   consulta COBRADA: papel próprio, e só editor/admin consulta (0011).
 export const MODULOS_ACESSO: { key: string; label: string }[] = [
   { key: "tributos", label: "Tributos" },
-  { key: "cnpj", label: "Consulta CNPJ" },
+  { key: "cnpj", label: "Consulta CNPJ + Simples Nacional" },
   { key: "y570", label: "Y570 · ECF" },
   { key: "cpf", label: "Consulta CPF" },
 ];
