@@ -11,6 +11,8 @@ o que os cinco portais fazem igual.
 | `sessao.ts` | `atualizarSessao()`, `redirecionar()`, `rotaDeAcesso()`, `cobrarTrocaDeSenha()` para o `src/proxy.ts` | servidor (proxy) |
 | `senha.ts` | regras puras: senha mínima, senha provisória sorteada, a marca de troca, destino seguro, `avisoDoLogin()` | os dois |
 | `vigia.tsx` | `<SaidaPorInatividade regra={…}>`: sai depois de um tempo parado; vai uma vez no layout raiz | navegador |
+| `passe.ts` | "Entrar pelo Flórida": assinar e conferir o passe (Ed25519, 60 s, um portal só) e a página que o entrega por POST | servidor |
+| `entrada.ts` | `entrarComPasse()` para `POST /auth/florida`: confere o passe com a chave pública do Flórida e abre a sessão da conta de mesmo e-mail (nunca cria conta) | servidor |
 | `inatividade.ts` | regras puras da saída: minutos por rota (curto é o padrão), atividade compartilhada entre abas | os dois |
 
 **Sem barril (`index.ts`) de propósito:** a tela é do navegador e as rotas são
