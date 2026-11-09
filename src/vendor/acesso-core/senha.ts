@@ -56,5 +56,9 @@ export function destinoSeguro(destino: string | null | undefined, padrao = "/"):
 export function avisoDoLogin(q: Record<string, string | string[] | undefined>): string | undefined {
   if (q.link === "invalido") return "O link expirou ou foi aberto em outro navegador. Peça um novo em “Esqueci minha senha”.";
   if (q.timeout || q.expirado) return "Sua sessão foi encerrada por inatividade. Entre de novo.";
+  // "Entrar pelo Flórida" (passe.ts / entrada.ts).
+  if (q.passe === "sem-conta") return "Você ainda não tem conta neste portal. Peça o acesso ao administrador dele e depois entre de novo pelo Flórida.";
+  if (q.passe === "invalido") return "Não deu para entrar pelo Flórida (o atalho vale 1 minuto). Volte ao Flórida e clique de novo, ou entre com e-mail e senha.";
+  if (q.passe === "indisponivel") return "A entrada pelo Flórida não está disponível agora. Entre com e-mail e senha.";
   return undefined;
 }
