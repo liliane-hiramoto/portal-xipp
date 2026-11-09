@@ -38,7 +38,7 @@ const MODULOS: Modulo[] = [
     key: "cnpj",
     href: `/cnpj?brand=${PORTAL.brandHex}`,
     icon: "🏢",
-    titulo: "Consulta CNPJ e SN",
+    titulo: "Consulta CNPJ + Simples Nacional",
     desc: "Base cadastral pela Receita: cartão CNPJ, sócios, Simples Nacional, SIMEI e regime regular do IBS/CBS. Importa lista e exporta Excel.",
     ready: true,
   },
