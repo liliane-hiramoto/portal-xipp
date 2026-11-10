@@ -124,7 +124,7 @@ export function MenuCards<T extends CardDoMenu>({
             </div>
           )}
           <div style={gradeFinal}>
-            {f.cards.map((c, ci) => !edicao ? <div key={c.id}>{desenhar(c)}</div> : (
+            {f.cards.map((c, ci) => !edicao ? <div key={c.id} style={{ height: "100%" }}>{desenhar(c)}</div> : (
               <div key={c.id} draggable
                 onDragStart={(e) => { setArrastando(c.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", c.id); }}
                 onDragEnd={() => { setArrastando(null); setSobre(null); }}
@@ -132,10 +132,12 @@ export function MenuCards<T extends CardDoMenu>({
                 onDrop={(e) => { e.preventDefault(); e.stopPropagation(); soltar(f.faixa, c.id); }}
                 style={{
                   position: "relative", cursor: "grab", borderRadius: 12,
+                  // A mesma altura na linha também no modo Organizar: o card estica e os controles ficam no pé.
+                  display: "flex", flexDirection: "column", height: "100%",
                   outline: `2px dashed ${sobre === c.id && arrastando !== c.id ? "var(--brand, #1e3a5f)" : "var(--line, #cbd5e1)"}`,
                   outlineOffset: 3, opacity: arrastando === c.id ? 0.4 : 1,
                 }}>
-                <div style={{ pointerEvents: "none", userSelect: "none" }}>{desenhar(c)}</div>
+                <div style={{ pointerEvents: "none", userSelect: "none", flex: 1 }}>{desenhar(c)}</div>
                 <div style={{ display: "flex", gap: 4, alignItems: "center", marginTop: 6 }}>
                   <button type="button" style={SETA} disabled={ci === 0} onClick={() => setEdicao(passoCard(edicao, c.id, -1))} aria-label="Para trás">◀</button>
                   <button type="button" style={SETA} disabled={ci === f.cards.length - 1} onClick={() => setEdicao(passoCard(edicao, c.id, 1))} aria-label="Para a frente">▶</button>
