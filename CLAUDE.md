@@ -114,3 +114,11 @@ Tela nova usa o kit (`<Kpi>`, `<Tabela>`, `<Aba>`/`<TiraAbas>`…).
   `public/logo-branco.png`.
 - Instância do Tributos: `xipp-tributos-web` (`tributosApp` no `portal.ts`).
 - Supabase e Vercel próprios (`portal-xipp`), região São Paulo.
+
+**Menu principal em faixas, com "⇅ Organizar" (10/11/2026 — pedido dela para
+todos os portais).** `<MenuCards>` do `kit-core` (`menu-cards.tsx`, regra em
+`menu-motor.ts`). Faixas padrão: Fiscal (Tributos, Consulta CNPJ, Y570, Consulta CPF) e Configurações (Cadastros, Acessos). A faixa em que cada card nasce está em
+`MODULOS` (`faixa`) e a ordem padrão em `FAIXAS` (`PortalHub.tsx`); card novo
+tem de dizer a faixa (o tipo exige). A ordem de cada pessoa fica no
+`user_metadata.menu_cards` da conta dela — preferência de tela, não acesso:
+quem vê qual card continua decidido pelo `temAcesso`.

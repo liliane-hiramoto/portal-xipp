@@ -1,7 +1,7 @@
 {
   "fonte": "liliane-hiramoto/kit-core",
   "arquivos": {
-    "README.md": "a2ea9074d2db0d3919eac3fd354aadc474194a56520ceb3eabc8473c22fac882",
+    "README.md": "dfdaeb81caa780b37bf74d31926394982a5bb868556abe9859a5ab684f16928d",
     "abas-tom.ts": "a322776cb0bd3a7b7cf86415b91fad117f6fcb69f35734a8104c3cced8bf5efb",
     "abas.tsx": "4b70d1b921d415b75444b3a1b9babd06c7fd524b7edb2efef34900a89c3f977f",
     "categorias.teste.mjs": "c336e51e66f01b4b57007af3643065760f336ef427c87b4f120f85b4b91de2e0",
@@ -13,6 +13,9 @@
     "formato.ts": "7c7232a58d53272382d034dbf428585ba1ad9cc6c683667255d46e05be8a32ce",
     "janela.tsx": "e2899c1d236c4b15379f2e175bf939c1ec66e19c1a7fb95dd82d4eeb55cb53e2",
     "kpi.tsx": "4f3860bee499b6949a1306acfc2e578d90d0d12f756c4645d09df9f492330f18",
+    "menu-cards.tsx": "0de9835dd6d62178a3a8a34d90d4fdf8db64dab2dd107ffc3c32278660032c17",
+    "menu-motor.teste.mjs": "b0eb34072f7f33c29a896c9f3019f2e089ae3d61b881a9838c7dfb9ec00fa6c9",
+    "menu-motor.ts": "bb806381aa33851ad14a6b52ac35d1f680590b69bbd9d6ad5190c163d2d6708e",
     "seletor-categoria.tsx": "092867be7b08b8ab681a0fcfb6d99cff4e8ce4a7cbfc468b510501aa5668c469",
     "tabela.tsx": "d556322bc7f4946d74a9f608b711a0b2846ceff6400063f86f566d787dd191d0",
     "testar.mjs": "806ab64448d47426ab846e79d08dc085fd89e6343ed262999299406d12b6c17a"

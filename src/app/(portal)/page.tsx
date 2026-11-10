@@ -18,5 +18,5 @@ export default async function Home() {
     modulos[row.modulo] = row.papel;
   });
 
-  return <PortalHub userEmail={user.email ?? ""} modulos={modulos} />;
+  return <PortalHub userEmail={user.email ?? ""} modulos={modulos} ordemMenu={user.user_metadata?.menu_cards} />;
 }
