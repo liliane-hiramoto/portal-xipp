@@ -11,6 +11,8 @@ portais desenhavam cada um do seu jeito.
 | `janela.tsx` | `<Janela>` (modal, no `<body>`) e `<EstadoDados>` (carregando/erro/vazio) |
 | `seletor-categoria.tsx` | `<SeletorCategoria grupos value onChange …>` — busca, setas, grupos da Estrutura FC |
 | `categorias.ts` | `GrupoOpcoes`, `listaDeGrupos`, `buscarCategorias` (puro, com teste) |
+| `menu-motor.ts` | `montarMenu`, `moverCard`, `passoCard`, `passoFaixa`, `ordemDe`, `lerOrdem` — o menu principal em faixas com a ordem de cada pessoa (puro, com teste) |
+| `menu-cards.tsx` | `<MenuCards cards faixas salvo desenhar aoSalvar>` e `salvarMenuNaConta` — faixas por assunto e "⇅ Organizar" (a ordem fica no `user_metadata.menu_cards` da pessoa) |
 
 **Cores:** variáveis da Headset (`--ink`, `--ink-2`, `--ink-3`, `--line`,
 `--paper`, `--bg-2`, `--brand`, `--brand-2`, `--red`, `--green`, `--amber`,
