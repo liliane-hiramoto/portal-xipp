@@ -48,7 +48,7 @@ SQL
 U=00000000-0000-0000-0000-00000000000
 # Antes da 0016: o banco de hoje (todas as migrações até a 0013), com gente.
 for f in $(ls supabase/migrations/*.sql | sort); do
-  case "$f" in *0006_empresa.sql|*0015_core_acessos_dono_unico.sql|*0014_core_modulos_acessos.sql) continue;; esac
+  case "$f" in *0006_empresa.sql|*0016_core_modulos_cards.sql|*0015_core_acessos_dono_unico.sql|*0014_core_modulos_acessos.sql) continue;; esac
   Q -f "$f" >/dev/null 2>"$DIR/err" || { echo "✗ aplicar $f"; cat "$DIR/err"; exit 1; }
 done
 Q <<SQL >/dev/null || { echo "✗ cenário"; exit 1; }
@@ -133,5 +133,19 @@ confere "0015: admin SÓ do tributos não marca"          "$(faz 3 "select publi
 confere "0015: módulo inventado barra"                  "$(faz 4 "select public.conceder_modulo('${U}5', 'inventado', 'viewer')")" barrou
 confere "0015: papel inventado barra"                   "$(faz 4 "select public.conceder_modulo('${U}5', 'tributos', 'dono')")" barrou
 confere "0015: anon não chama"                          "$(Q -tAc "set role anon; select public.conceder_modulo('${U}5', 'tributos', 'viewer')" >/dev/null 2>&1 && echo passou || echo barrou)" barrou
+
+# ── Etapa 3 (0016): editar o card pela view — só admin do portal, só as seis colunas ──
+for vez in 1 2; do
+  Q -f supabase/migrations/0016_core_modulos_cards.sql >/dev/null 2>"$DIR/err" || { echo "✗ aplicar 0016 ($vez)"; cat "$DIR/err"; exit 1; }
+done
+confere "0016: conferência da migração"                 "$(Q -tAc "$(sed -n '/^-- Conferência/,$p' supabase/migrations/0016_core_modulos_cards.sql | grep -v '^--')" | tail -1)" "t|f|f|f|f"
+confere "0016: admin do portal troca o nome pela view"  "$(como 4 "with u as (update public.modulos set label='Tributos Federais' where key='tributos' returning 1) select count(*) from u")" 1
+confere "0016: …e chega na tabela"                      "$(conta "select label from core.modulos where key='tributos'")" "Tributos Federais"
+confere "0016: a super-admin também troca"              "$(como 1 "with u as (update public.modulos set label='Tributos' where key='tributos' returning 1) select count(*) from u")" 1
+confere "0016: admin SÓ do tributos não troca"          "$(como 3 "with u as (update public.modulos set label='x' where key='tributos' returning 1) select count(*) from u")" 0
+confere "0016: viewer não troca"                        "$(como 2 "with u as (update public.modulos set label='x' where key='tributos' returning 1) select count(*) from u")" 0
+confere "0016: o endereço não se troca"                 "$(faz 4 "update public.modulos set href='/x' where key='tributos'")" barrou
+confere "0016: quem-vê-o-quê não se troca"              "$(faz 4 "update public.modulos set so_admin=true where key='tributos'")" barrou
+confere "0016: card novo não se cria"                   "$(faz 4 "insert into public.modulos (key, label) values ('novo', 'x')")" barrou
 
 [ "$FALHAS" = 0 ] && echo "core_acessos: tudo ok" || { echo "core_acessos: $FALHAS falha(s)"; exit 1; }

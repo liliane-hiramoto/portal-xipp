@@ -1,6 +1,6 @@
 -- SETUP COMPLETO do portal fiscal — GERADO por scripts/montar-setup.mjs, não edite.
 -- Cole tudo no Supabase › SQL Editor do portal novo e clique em Run (uma vez).
--- Junta, na ordem: 0001_portal.sql, 0002_cadastro.sql, 0004_viewer_so_le.sql, 0005_senha_provisoria.sql, 0007_modulo_tributos.sql, 0008_cnpj_base.sql, 0009_modulo_y570.sql, 0010_y570_pdfs_e_cadastro.sql, 0011_consulta_cpf.sql, 0012_perfis_acesso.sql, 0013_admin_do_portal_separado.sql, 0014_core_modulos_acessos.sql, 0015_core_acessos_dono_unico.sql.
+-- Junta, na ordem: 0001_portal.sql, 0002_cadastro.sql, 0004_viewer_so_le.sql, 0005_senha_provisoria.sql, 0007_modulo_tributos.sql, 0008_cnpj_base.sql, 0009_modulo_y570.sql, 0010_y570_pdfs_e_cadastro.sql, 0011_consulta_cpf.sql, 0012_perfis_acesso.sql, 0013_admin_do_portal_separado.sql, 0014_core_modulos_acessos.sql, 0015_core_acessos_dono_unico.sql, 0016_core_modulos_cards.sql.
 -- A última tabela que aparece é a conferência do catálogo de cards e acessos (6 · true · 1 · true · false).
 
 -- ==================== 0001_portal.sql ====================
@@ -941,3 +941,14 @@ select (select case relkind when 'v' then 'view' else 'TABELA' end from pg_class
        (select bool_and(has_function_privilege('authenticated', f, 'EXECUTE'))
           from unnest(array['public.conceder_modulo(uuid,text,text)', 'public.revogar_modulo(uuid,text)',
                             'public.marcar_admin_portal(uuid,boolean)']) f) as funcoes_ligadas;
+
+-- ==================== 0016_core_modulos_cards.sql ====================
+revoke all on public.modulos from anon, authenticated, public;
+grant select on public.modulos to authenticated, service_role;
+grant update (label, descricao, emoji, grupo, ordem, oculto) on public.modulos to authenticated;
+
+select has_column_privilege('authenticated', 'public.modulos', 'label', 'UPDATE')    as edita_nome,
+       has_column_privilege('authenticated', 'public.modulos', 'href', 'UPDATE')     as mexe_no_destino,
+       has_column_privilege('authenticated', 'public.modulos', 'so_admin', 'UPDATE') as mexe_em_quem_ve,
+       has_table_privilege('anon', 'public.modulos', 'UPDATE')                        as anonimo_edita,
+       has_table_privilege('authenticated', 'public.modulos', 'INSERT')               as cria_card;

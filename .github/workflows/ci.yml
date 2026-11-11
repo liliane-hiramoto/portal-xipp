@@ -58,6 +58,8 @@ jobs:
         run: node --experimental-strip-types scripts/testar-modulos-db.mjs
       - name: user_modules — leitura filtrada pela pessoa, gravação só pelas funções (Etapa 5)
         run: node scripts/conferir-acessos.mjs
+      - name: Cards do menu editáveis (o que a tela pode mudar num card)
+        run: node --experimental-strip-types scripts/testar-cards-menu.mjs
       - name: Build
         run: npm run build
       - name: RLS em Postgres descartável

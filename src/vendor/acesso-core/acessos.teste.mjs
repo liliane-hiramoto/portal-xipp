@@ -122,6 +122,7 @@ export default async function testeAcessos(t) {
   }
   await testePortaFuncoes(t);
   await testeEscopo(t);
+  await testeEstrelaFicha(t);
 }
 
 export async function testePortaFuncoes(t) {
@@ -181,4 +182,52 @@ export async function testeEscopo(t) {
   t.eq("mexer em quem é admin do módulo é recusado", (await tratarAcao(porta, { acao: "revogar_acesso", user_id: "ana", modulo: "fin" })).status, 403);
   for (const acao of ["criar_usuario", "trocar_senha", "ativo", "excluir_usuario", "admin_portal", "salvar_perfil", "aplicar_perfil", "editar_usuario"])
     t.eq(`admin de módulo não faz "${acao}"`, (await tratarAcao(porta, { acao, user_id: "bia", email: "a@x.com", nome: "x" })).status, 403);
+}
+
+export async function testeEstrelaFicha(t) {
+  let linhas = [
+    { user_id: "ana", modulo: "fin", papel: "editor", admin_modulo: true },
+    { user_id: "bia", modulo: "fin", papel: "viewer" },
+  ];
+  let ficha = { ana: { nome_completo: "Ana Souza", telefone: "11999990000" } };
+  const login = (id) => ({ id, email: `${id}@x.com`, nome: id, ultimo_acesso: null, banido_ate: null });
+  const base = {
+    superAdmin: "dona@x.com", euId: "eu",
+    modulos: [{ key: "fin", label: "Financeiro" }],
+    logins: { listar: async () => ["ana", "bia", "eu"].map(login), ler: async (id) => login(id), criar: async () => "x", atualizar: async () => {}, excluir: async () => {} },
+    acessos: {
+      listar: async () => linhas,
+      conceder: async (u, m, p) => { linhas = [...linhas.filter((l) => !(l.user_id === u && l.modulo === m)), { user_id: u, modulo: m, papel: p }]; },
+      revogar: async (u, m) => { linhas = linhas.filter((l) => !(l.user_id === u && l.modulo === m)); },
+      marcarAdminModulo: async (u, m, v) => { linhas = linhas.map((l) => (l.user_id === u && l.modulo === m ? { ...l, admin_modulo: v } : l)); },
+    },
+    ficha: {
+      campos: [{ key: "nome_completo", label: "Nome completo" }, { key: "telefone", label: "Telefone", tipo: "telefone" }, { key: "nascimento", label: "Nascimento", tipo: "data" }],
+      ler: async () => ficha,
+      salvar: async (u, v) => { ficha = { ...ficha, [u]: v }; },
+    },
+  };
+  const d = await listarAcessos(base);
+  t.eq("recursos: sem admin do portal pela tela, com ★ e ficha", [d.recursos.adminPortal, d.recursos.estrela, d.recursos.ficha.length], [false, true, 3]);
+  t.ok("a ★ vem na pessoa", d.usuarios.find((u) => u.id === "ana").acessos[0].admin_modulo === true);
+  t.eq("a ficha vem na pessoa", d.usuarios.find((u) => u.id === "ana").ficha.nome_completo, "Ana Souza");
+  t.eq("sem marcarAdminPortal, admin do portal é recusado", (await tratarAcao(base, { acao: "admin_portal", user_id: "bia", valor: true })).status, 400);
+  t.eq("★ em quem tem o módulo passa", (await tratarAcao(base, { acao: "admin_modulo", user_id: "bia", modulo: "fin", valor: true })).status, 200);
+  t.ok("…e grava", linhas.find((l) => l.user_id === "bia").admin_modulo === true);
+  await tratarAcao(base, { acao: "revogar_acesso", user_id: "bia", modulo: "fin" });
+  t.eq("★ em quem não tem o módulo é recusada", (await tratarAcao(base, { acao: "admin_modulo", user_id: "bia", modulo: "fin", valor: true })).status, 400);
+  t.eq("ninguém muda a própria ★", (await tratarAcao(base, { acao: "admin_modulo", user_id: "eu", modulo: "fin", valor: true })).status, 400);
+  t.eq("ficha: data errada é recusada", (await tratarAcao(base, { acao: "salvar_ficha", user_id: "ana", ficha: { nascimento: "31/12/1990" } })).status, 400);
+  await tratarAcao(base, { acao: "salvar_ficha", user_id: "ana", ficha: { nome_completo: " Ana P. ", telefone: "(11) 98888-7777", nascimento: "1990-12-31" } });
+  t.eq("ficha: limpa o texto e o telefone, vazio vira null", ficha.ana, { nome_completo: "Ana P.", telefone: "11988887777", nascimento: "1990-12-31" });
+
+  const escopo = { ...base, euId: "bia", escopo: ["fin"] };
+  linhas = [{ user_id: "ana", modulo: "fin", papel: "editor", admin_modulo: true }, { user_id: "bia", modulo: "fin", papel: "editor", admin_modulo: true }, { user_id: "cris", modulo: "fin", papel: "viewer" }];
+  const de = await listarAcessos(escopo);
+  t.ok("admin de módulo não vê ficha nem ★", de.recursos.ficha === null && de.recursos.estrela === false && !("ficha" in de.usuarios[0]));
+  t.eq("admin de módulo não mexe em quem tem a ★", (await tratarAcao(escopo, { acao: "revogar_acesso", user_id: "ana", modulo: "fin" })).status, 403);
+  t.eq("admin de módulo não mexe no próprio acesso", (await tratarAcao(escopo, { acao: "conceder_acesso", user_id: "bia", modulo: "fin", papel: "viewer" })).status, 403);
+  t.eq("admin de módulo não dá ★", (await tratarAcao(escopo, { acao: "admin_modulo", user_id: "cris", modulo: "fin", valor: true })).status, 403);
+  t.eq("admin de módulo não grava ficha", (await tratarAcao(escopo, { acao: "salvar_ficha", user_id: "cris", ficha: {} })).status, 403);
+  t.eq("…mas mexe em quem não é admin", (await tratarAcao(escopo, { acao: "conceder_acesso", user_id: "cris", modulo: "fin", papel: "editor" })).status, 200);
 }
