@@ -125,5 +125,24 @@ confere "viewer do cpf NÃO consulta (grava)"    "$(grava_cpf ${U}9 $E)" nao
 confere "editor do cpf consulta (grava)"        "$(grava_cpf ${C} $E)" sim
 confere "y570 NÃO vê o histórico de CPF"        "$(le_cpf ${U}8 $E)" 0
 confere "sem módulo: não lê CPF"                "$(le_cpf ${U}6 $E)" 0
+
+# ---- 0013: admin do PORTAL separado do admin de MÓDULO ----
+for i in 1 2; do Q -f supabase/migrations/0013_admin_do_portal_separado.sql >/dev/null 2>"$DIR/err" || { echo "✗ aplicar 0013 ($i)"; cat "$DIR/err"; exit 1; }; done
+A=00000000-0000-0000-0000-0000000000a1; P=00000000-0000-0000-0000-0000000000a2
+Q <<SQL >/dev/null || { echo "✗ cenário 0013"; exit 1; }
+insert into auth.users (id, email) values ('$A', 'admin-trib@exemplo.com'), ('$P', 'admin-portal@exemplo.com');
+insert into public.user_modules values ('$A', 'tributos', 'admin'), ('$P', 'portal', 'admin');
+SQL
+confere "0013: quem já era admin (de outro módulo) continua admin do portal" "$(le_darf ${U}5 $E)" "$(le_darf ${U}6 liliane.hiramoto@grupoflorida.com.br)"
+confere "0013: admin NOVO do tributos lê e grava DARF"     "$(grava_darf $A $E)" sim
+confere "0013: admin do tributos NÃO vê a base de CNPJ"    "$(le_cnpj $A $E)" 0
+confere "0013: admin do tributos NÃO grava na base de CNPJ" "$(grava_cnpj $A $E 4)" nao
+confere "0013: admin do tributos NÃO vê o Y570"            "$(le_y570 $A $E)" 0
+confere "0013: admin do tributos NÃO é admin do portal"    "$(Q -tAc "$(como $A $E) select public.eh_admin_portal();" | tail -1)" f
+confere "0013: a linha 'portal' é admin do portal"         "$(Q -tAc "$(como $P $E) select public.eh_admin_portal();" | tail -1)" t
+confere "0013: admin do portal lê o Y570"                  "$(le_y570 $P $E)" 2
+confere "0013: admin do portal grava na base de CNPJ"      "$(grava_cnpj $P $E 5)" sim
+confere "0013: super-admin pelo e-mail é admin do portal"  "$(Q -tAc "$(como ${U}6 liliane.hiramoto@grupoflorida.com.br) select public.eh_admin_portal();" | tail -1)" t
+confere "0013: conferência (função · admins · sem linha portal)" "$(Q -tAc "$(sed -n '/^SELECT$/,$p' supabase/migrations/0013_admin_do_portal_separado.sql)" | tail -1)" "1|2|1"
 echo
 [ "$FALHAS" = 0 ] && echo "✅ Tributos, Consulta CNPJ, Y570 e Consulta CPF: RLS OK" || { echo "❌ $FALHAS falha(s)"; exit 1; }

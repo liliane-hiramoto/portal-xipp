@@ -35,7 +35,7 @@ export async function updateSession(request: NextRequest) {
     if (!superAdmin) {
       const { data } = await supabase.from("user_modules").select("modulo,papel");
       const linhas = (data ?? []) as { modulo: string; papel: string }[];
-      const pode = linhas.some((r) => r.modulo === zona[1] || r.papel === "admin");
+      const pode = linhas.some((r) => r.modulo === zona[1] || (r.modulo === "portal" && r.papel === "admin")); // 0013: admin do PORTAL, não de outro módulo
       if (!pode) return redirecionar(request, "/");
     }
   }

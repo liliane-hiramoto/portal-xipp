@@ -111,7 +111,9 @@ export default function PortalHub({
   ordemMenu?: unknown;
 }) {
   const router = useRouter();
-  const ehAdmin = userEmail.toLowerCase() === "liliane.hiramoto@grupoflorida.com.br" || Object.values(modulos).includes("admin");
+  // Admin do PORTAL (0013): a super-admin ou a linha explícita "portal" — o papel
+  // "admin" de um módulo vale só para aquele módulo.
+  const ehAdmin = userEmail.toLowerCase() === "liliane.hiramoto@grupoflorida.com.br" || modulos.portal === "admin";
 
   // Só mostra as caixinhas que o usuário tem acesso: módulo em user_modules,
   // Cadastros (semGate = todos) e Admin (só quem tem papel admin).

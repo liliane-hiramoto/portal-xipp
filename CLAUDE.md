@@ -48,8 +48,17 @@ tela é bug: vai para o `portal.ts`.
 
 ## Acesso e segurança
 - **Acesso por módulo**: `user_modules` (`modulo`, `papel` = viewer · editor ·
-  admin). Admin em qualquer módulo = admin do portal. Super-admin de bootstrap:
-  `SUPER_ADMIN` em `src/lib/papel.ts`.
+  admin). Super-admin de bootstrap: `SUPER_ADMIN` em `src/lib/papel.ts`.
+- **Admin do PORTAL ≠ admin de MÓDULO** (0013, 11/11/2026 — decisão dela,
+  "Separar"). Admin do portal = a super-admin pelo e-mail ou a linha
+  `user_modules(modulo 'portal', papel 'admin')`, ligada em Acessos › ficha ›
+  "Admin do portal"; no código `ehAdmin()`, no banco `eh_admin_portal()`, no
+  proxy a mesma linha. Papel `admin` num módulo vale SÓ para aquele módulo.
+  Antes, admin em qualquer módulo (ou um perfil com "admin") promovia a pessoa
+  a dona do portal. A 0013 deu a linha 'portal' a quem já era admin, para
+  ninguém perder nada. ⚠️ A instância do Tributos (`xipp-tributos-web`) lê
+  o mesmo `user_modules`: o DADO já segue a régua nova (RLS), a tela de lá
+  ainda pode tratar "admin de outro módulo" como admin.
 - **O `proxy` protege a TELA, não o DADO.** `/tributos`, `/y570` e `/cnpj` são
   outros apps, sem login próprio: o proxy os tranca pelo módulo
   (`ZONAS_MODULO`, `src/lib/supabase/middleware.ts`). O DADO segue a RLS:

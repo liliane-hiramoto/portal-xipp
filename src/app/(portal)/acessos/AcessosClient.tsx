@@ -18,7 +18,7 @@ import { useSearchParams } from "next/navigation";
 interface Acesso { modulo: string; papel: string }
 interface Usuario {
   id: string; email: string; nome: string; ultimo_acesso: string | null;
-  ativo: boolean; super_admin: boolean; acessos: Acesso[];
+  ativo: boolean; super_admin: boolean; admin_portal?: boolean; acessos: Acesso[];
 }
 interface Modulo { key: string; label: string }
 interface PerfilItem { modulo: string; papel: string }
@@ -101,6 +101,7 @@ export default function AcessosClient({ meuId }: { meuId: string }) {
 function resumo(u: Usuario): { texto: string; cls: string } {
   if (!u.ativo) return { texto: "inativo — não entra", cls: "text-red-600" };
   if (u.super_admin) return { texto: "super-admin", cls: "text-violet-600" };
+  if (u.admin_portal) return { texto: "admin do portal", cls: "text-violet-600" };
   const n = u.acessos.length;
   return { texto: n === 0 ? "login, nenhum módulo" : `${n} ${n === 1 ? "módulo" : "módulos"}`, cls: n === 0 ? "text-amber-600" : "text-slate-500" };
 }
@@ -234,6 +235,7 @@ function Ficha({ u, d, acao, eu }: { u: Usuario; d: Dados; acao: Acao; eu: boole
       <div className="flex flex-wrap items-center gap-3">
         <span className={`${badge} ${u.ativo ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>{u.ativo ? "login ativo" : "inativo"}</span>
         {u.super_admin && <span className={`${badge} bg-violet-100 text-violet-700`}>super-admin</span>}
+        {!u.super_admin && u.admin_portal && <span className={`${badge} bg-violet-100 text-violet-700`}>admin do portal</span>}
         <span className="text-xs text-slate-500">
           {u.ultimo_acesso ? `último acesso ${new Date(u.ultimo_acesso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : "nunca acessou"}
         </span>
@@ -260,6 +262,25 @@ function Ficha({ u, d, acao, eu }: { u: Usuario; d: Dados; acao: Acao; eu: boole
           </div>
         </details>
       </div>
+
+      {/* ADMIN DO PORTAL (0013) — separado do papel "admin" de cada módulo */}
+      {!u.super_admin && (
+        <label className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${u.admin_portal ? "border-violet-200 bg-violet-50" : "border-slate-200"} ${eu ? "opacity-60" : ""}`}>
+          <input type="checkbox" className="mt-0.5" checked={!!u.admin_portal} disabled={eu}
+            onChange={(e) => {
+              const valor = e.target.checked;
+              if (valor && !confirm(`Tornar ${u.nome || u.email} ADMIN DO PORTAL?\n\nA pessoa passa a criar contas, dar e tirar acesso a qualquer módulo e ver todos os dados do portal.`)) return;
+              acao({ acao: "admin_portal", user_id: u.id, valor }, valor ? "Agora é admin do portal." : "Deixou de ser admin do portal.");
+            }} />
+          <span>
+            <span className="font-medium text-slate-800">Admin do portal</span>
+            <span className="block text-xs text-slate-500">
+              Cria contas e dá acesso a tudo. O papel &quot;admin&quot; de um módulo, abaixo, vale só para aquele módulo.
+              {eu && " (o seu próprio não se muda por aqui)"}
+            </span>
+          </span>
+        </label>
+      )}
 
       {/* PERMISSÕES — só o que a pessoa TEM */}
       {u.super_admin ? (

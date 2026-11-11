@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { exigeAdmin, MODULOS_ACESSO, SUPER_ADMIN } from "@/lib/papel";
+import { exigeAdmin, MODULO_PORTAL, MODULOS_ACESSO, SUPER_ADMIN } from "@/lib/papel";
 import { senhaProvisoria } from "@/lib/senha";
 
 // Tela de Acessos (src/app/(portal)/acessos) — o modelo do Portal Flórida
@@ -37,6 +37,10 @@ export async function GET() {
       ultimo_acesso: u.last_sign_in_at ?? null,
       ativo: !ban || new Date(ban).getTime() < agora,
       super_admin: (u.email ?? "").toLowerCase() === SUPER_ADMIN,
+      // Admin do PORTAL (0013): a linha explícita 'portal' — separada do papel
+      // 'admin' de um módulo, que vale só para aquele módulo.
+      admin_portal: ((mods ?? []) as { user_id: string; modulo: string; papel: string }[])
+        .some((m) => m.user_id === u.id && m.modulo === MODULO_PORTAL && m.papel === "admin"),
       acessos: ((mods ?? []) as { user_id: string; modulo: string; papel: string }[])
         .filter((m) => m.user_id === u.id && MODULOS.has(m.modulo))
         .map((m) => ({ modulo: m.modulo, papel: m.papel })),
@@ -150,6 +154,19 @@ export async function POST(req: NextRequest) {
       if (!uid || !MODULOS.has(modulo)) return erro(400, "usuário ou módulo inválido");
       const { error } = await sb.from("user_modules").delete().eq("user_id", uid).eq("modulo", modulo);
       if (error) return erro(500, `Não tirou o acesso: ${error.message}`);
+      return NextResponse.json({ ok: true });
+    }
+
+    // Admin do PORTAL (0013): cria contas e dá acesso a tudo. Só se liga aqui,
+    // pela tela — nenhum perfil chega a ele (o CHECK da 0012 não aceita 'portal').
+    case "admin_portal": {
+      if (!uid) return erro(400, "user_id obrigatório");
+      if (eu?.id === uid) return erro(400, "você não pode mudar o seu próprio admin do portal");
+      if (await ehSuperAdmin(uid)) return erro(400, "a super-admin já é admin do portal");
+      const { error } = body.valor
+        ? await sb.from("user_modules").upsert({ user_id: uid, modulo: MODULO_PORTAL, papel: "admin" }, { onConflict: "user_id,modulo" })
+        : await sb.from("user_modules").delete().eq("user_id", uid).eq("modulo", MODULO_PORTAL);
+      if (error) return erro(500, `Não gravou: ${error.message}`);
       return NextResponse.json({ ok: true });
     }
 
