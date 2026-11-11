@@ -66,9 +66,11 @@ function Moldura({ marca, subtitulo, aviso, children }: { marca: Marca; subtitul
   );
 }
 
-// O "olho" do campo de senha (pedido dela, 04/11/2026, para todos os portais):
+// O "olho" do campo de senha (pedido dela, 04/11/2026, para todos os portais)
 // mostra o que foi digitado, para conferir antes de entrar. Ícone em SVG inline
-// pelo mesmo motivo do estilo inline (nada de classe de fora).
+// pelo mesmo motivo do estilo inline (nada de classe de fora). `margin: 0` e
+// `width: "auto"` explícitos: CSS de portal com `button{width:100%;margin-top:…}`
+// (a Affix) tirava o olho de dentro do campo (09/11/2026).
 function Olho({ aberto }: { aberto: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -90,7 +92,7 @@ function Campo(p: { rotulo: string; tipo: string; valor: string; muda: (v: strin
           onChange={(e) => p.muda(e.target.value)} style={senha ? { ...S.campo, paddingRight: 40 } : S.campo} />
         {senha && (
           <button type="button" onClick={() => setVer((v) => !v)} aria-label={ver ? "Ocultar senha" : "Mostrar senha"} title={ver ? "Ocultar senha" : "Mostrar senha"}
-            style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: 0, padding: 6, cursor: "pointer", color: "#64748b", display: "flex" }}>
+            style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: 0, padding: 6, margin: 0, width: "auto", cursor: "pointer", color: "#64748b", display: "flex" }}>
             <Olho aberto={ver} />
           </button>
         )}
