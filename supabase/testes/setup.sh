@@ -21,6 +21,7 @@ Q() { psql -h /tmp -p "$PORT" -U postgres -q -v ON_ERROR_STOP=1 "$@"; }
 Q <<'SQL' || { echo "✗ espelho do Supabase"; exit 1; }
 create role authenticated nologin;
 create role anon nologin;
+create role service_role nologin; -- o Supabase tem (a 0014 dá permissão a ele)
 create schema auth;
 create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb, raw_app_meta_data jsonb);
 create function auth.jwt() returns jsonb language sql stable as

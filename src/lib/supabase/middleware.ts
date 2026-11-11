@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { atualizarSessao, cobrarTrocaDeSenha, redirecionar, rotaDeAcesso } from "@/vendor/acesso-core/sessao";
 import { SUPER_ADMIN } from "@/lib/papel";
+import { lerAcessos, type Busca } from "@/lib/modulos-db";
 
 // Apps servidos por OUTRO projeto da Vercel (rewrites do next.config.ts) e o
 // módulo de `user_modules` que cada um exige. Eles NÃO têm login próprio: sem
@@ -33,8 +34,14 @@ export async function updateSession(request: NextRequest) {
   if (zona && user) {
     const superAdmin = (user.email ?? "").toLowerCase() === SUPER_ADMIN;
     if (!superAdmin) {
-      const { data } = await supabase.from("user_modules").select("modulo,papel");
-      const linhas = (data ?? []) as { modulo: string; papel: string }[];
+      // core.acessos pela view (0014); sem ela, o user_modules de sempre.
+      const buscar: Busca = async (tabela, colunas, filtro) => {
+        let q = supabase.from(tabela).select(colunas);
+        if (filtro) q = q.eq(filtro.coluna, filtro.valor);
+        const { data, error } = await q;
+        return { data: data as unknown[] | null, error };
+      };
+      const linhas = await lerAcessos(buscar, user.id);
       const pode = linhas.some((r) => r.modulo === zona[1] || (r.modulo === "portal" && r.papel === "admin")); // 0013: admin do PORTAL, não de outro módulo
       if (!pode) return redirecionar(request, "/");
     }
