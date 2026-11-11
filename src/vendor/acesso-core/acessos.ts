@@ -78,6 +78,15 @@ export interface PortaAcessos {
   acessos: PortaGuarda;
   /** Sem perfis neste portal: a aba Perfis não aparece. */
   perfis?: PortaPerfis;
+  /**
+   * ADMIN DE MÓDULO (a ★ da Etapa 4; a régua da 0008 da Affix): quem pede NÃO
+   * é admin do portal, mas administra estes módulos. Vê só eles e só dá/tira
+   * acesso a eles — sem dar o papel admin, sem mexer em quem já é admin ali,
+   * e sem nada do login (criar, senha, inativar, excluir, admin do portal,
+   * perfis). Ausente = admin do portal (tudo). A régua de verdade continua no
+   * banco (`conceder_modulo`); aqui é a mesma regra, para a tela explicar.
+   */
+  escopo?: string[];
 }
 
 export interface Pessoa {
@@ -90,10 +99,13 @@ export interface DadosAcessos {
   modulos: (ModuloAcesso & { papeis: Papel[] })[];
   /** undefined = o portal não tem perfis; null = falta a migração. */
   perfis?: Perfil[] | null;
+  /** Presente = quem vê é admin SÓ destes módulos (a tela esconde o resto). */
+  escopo?: string[];
 }
 export interface Resposta { status: number; corpo: Record<string, unknown> }
 
 const papeisDe = (m: ModuloAcesso): Papel[] => (m.papeis?.length ? m.papeis : [...PAPEIS]);
+const semAdmin = (m: ModuloAcesso): Papel[] => { const p = papeisDe(m).filter((x) => x !== "admin"); return p.length ? p : papeisDe(m); };
 const eSuper = (porta: PortaAcessos, email: string) => email.trim().toLowerCase() === porta.superAdmin.toLowerCase();
 const ativoAgora = (banido: string | null, agora: number) => !banido || new Date(banido).getTime() < agora;
 const erro = (status: number, mensagem: string): Resposta => ({ status, corpo: { ok: false, error: mensagem } });
@@ -107,7 +119,8 @@ export async function listarAcessos(porta: PortaAcessos, agora = Date.now()): Pr
     porta.acessos.listar(),
     porta.perfis ? porta.perfis.listar().catch(() => null) : Promise.resolve(undefined),
   ]);
-  const chaves = new Set(porta.modulos.map((m) => m.key));
+  const modulos = porta.escopo ? porta.modulos.filter((m) => porta.escopo!.includes(m.key)) : porta.modulos;
+  const chaves = new Set(modulos.map((m) => m.key));
   const usuarios: Pessoa[] = logins.map((u) => ({
     id: u.id,
     email: u.email,
@@ -119,8 +132,13 @@ export async function listarAcessos(porta: PortaAcessos, agora = Date.now()): Pr
     acessos: linhas.filter((l) => l.user_id === u.id && chaves.has(l.modulo)).map((l) => ({ modulo: l.modulo, papel: l.papel })),
   }));
   usuarios.sort((a, b) => (a.nome || a.email).localeCompare(b.nome || b.email, "pt-BR"));
-  const dados: DadosAcessos = { usuarios, modulos: porta.modulos.map((m) => ({ ...m, papeis: papeisDe(m) })) };
-  if (porta.perfis) dados.perfis = perfis ?? null;
+  const dados: DadosAcessos = {
+    usuarios,
+    // Admin de módulo não dá o papel admin: a tela nem oferece.
+    modulos: modulos.map((m) => ({ ...m, papeis: porta.escopo ? semAdmin(m) : papeisDe(m) })),
+  };
+  if (porta.escopo) dados.escopo = [...porta.escopo];
+  else if (porta.perfis) dados.perfis = perfis ?? null;
   return dados;
 }
 
@@ -134,6 +152,10 @@ export async function tratarAcao(porta: PortaAcessos, corpo: Record<string, unkn
 }
 
 async function tratar(porta: PortaAcessos, b: Record<string, unknown>): Promise<Resposta> {
+  if (porta.escopo) {
+    const r = await travaEscopo(porta, porta.escopo, b);
+    if (r) return r;
+  }
   const uid = String(b.user_id ?? "");
   const modulo = porta.modulos.find((m) => m.key === String(b.modulo ?? ""));
   const souEu = !!uid && uid === porta.euId;
@@ -254,6 +276,19 @@ async function tratar(porta: PortaAcessos, b: Record<string, unknown>): Promise<
     default:
       return erro(400, "ação desconhecida");
   }
+}
+
+/** Admin de MÓDULO: só dar/tirar acesso nos módulos dele, sem o papel admin. */
+async function travaEscopo(porta: PortaAcessos, escopo: string[], b: Record<string, unknown>): Promise<Resposta | null> {
+  if (b.acao !== "conceder_acesso" && b.acao !== "revogar_acesso") return erro(403, "só o admin do portal faz isto");
+  const modulo = String(b.modulo ?? "");
+  if (!escopo.includes(modulo)) return erro(403, "você não administra este módulo");
+  if (b.acao === "conceder_acesso" && String(b.papel) === "admin") return erro(403, "só o admin do portal dá o papel admin");
+  const uid = String(b.user_id ?? "");
+  const linhas = await porta.acessos.listar();
+  if (linhas.some((l) => l.user_id === uid && l.modulo === modulo && l.papel === "admin"))
+    return erro(403, "só o admin do portal mexe em quem é admin deste módulo");
+  return null;
 }
 
 /** Só módulo da lista e papel que o módulo aceita. */

@@ -2,9 +2,9 @@
   "fonte": "liliane-hiramoto/acesso-core",
   "arquivos": {
     "README.md": "c7b6f2d57dc9209bfb85f346c5cbc70ce9835ec4ef6b8a3007dd82f6f3f9a9df",
-    "acessos-tela.tsx": "9c64e501fb0be9c80eb2e30d78be25886c37b29f840c065191c59ac3468c6928",
-    "acessos.teste.mjs": "12377bbea2db537fa3a7be573400464927f1e99a3e96cfc93ac7f04938aa24f4",
-    "acessos.ts": "82522ea3a4b0ec1f8d73a4f4c91068bab4f787490ced2de9597f40bf1b76df34",
+    "acessos-tela.tsx": "79bc7cd1409cb6d32b66579acc2fd29ba30511575733e38ce7b6b48f2ce3b6c0",
+    "acessos.teste.mjs": "b32aade5941698b6f8299d8a7d559a7bbe65c0ca5b9999d17695c882dfdb0a02",
+    "acessos.ts": "422fd2fa56fc3fa12b77d8f3558c3bff89a706b75395e96d2369aacf427674eb",
     "entrada.ts": "0364b659977ee096ba26228ba1cd20149ba75c91b6bc8581e4bda0fdada2153b",
     "inatividade.teste.mjs": "4b3c527c9052ac823b1530476aed45409c3d9c1d07a9274b792ec3392a87e31c",
     "inatividade.ts": "c973704dd0756e9dedc3237f8ce4daf52967fe444b9e40b8a792b211340341f2",
