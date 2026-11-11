@@ -1,6 +1,6 @@
 -- SETUP COMPLETO do portal fiscal — GERADO por scripts/montar-setup.mjs, não edite.
 -- Cole tudo no Supabase › SQL Editor do portal novo e clique em Run (uma vez).
--- Junta, na ordem: 0001_portal.sql, 0002_cadastro.sql, 0004_viewer_so_le.sql, 0005_senha_provisoria.sql, 0007_modulo_tributos.sql, 0008_cnpj_base.sql, 0009_modulo_y570.sql, 0010_y570_pdfs_e_cadastro.sql, 0011_consulta_cpf.sql, 0012_perfis_acesso.sql.
+-- Junta, na ordem: 0001_portal.sql, 0002_cadastro.sql, 0004_viewer_so_le.sql, 0005_senha_provisoria.sql, 0007_modulo_tributos.sql, 0008_cnpj_base.sql, 0009_modulo_y570.sql, 0010_y570_pdfs_e_cadastro.sql, 0011_consulta_cpf.sql, 0012_perfis_acesso.sql, 0013_admin_do_portal_separado.sql.
 -- A última tabela que aparece é a conferência do Consulta CPF (true · 2 · 2).
 
 -- ==================== 0001_portal.sql ====================
@@ -592,3 +592,54 @@ SELECT
   (SELECT count(*) FROM public.perfis_acesso) AS perfis,
   (SELECT count(*) FROM pg_policies WHERE tablename IN ('perfis_acesso', 'perfil_acesso_itens')) AS politicas_de_0,
   (SELECT bool_and(relrowsecurity) FROM pg_class WHERE oid IN ('public.perfis_acesso'::regclass, 'public.perfil_acesso_itens'::regclass)) AS rls_ligada;
+
+-- ==================== 0013_admin_do_portal_separado.sql ====================
+BEGIN;
+
+INSERT INTO public.user_modules (user_id, modulo, papel)
+SELECT DISTINCT user_id, 'portal', 'admin'
+  FROM public.user_modules
+ WHERE papel = 'admin' AND modulo <> 'portal'
+ON CONFLICT (user_id, modulo) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION public.eh_admin_portal() RETURNS boolean
+  LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT lower(coalesce(auth.jwt() ->> 'email', '')) = 'liliane.hiramoto@grupoflorida.com.br'
+      OR EXISTS (SELECT 1 FROM public.user_modules
+                  WHERE user_id = auth.uid() AND modulo = 'portal' AND papel = 'admin');
+$$;
+REVOKE ALL ON FUNCTION public.eh_admin_portal() FROM public;
+GRANT EXECUTE ON FUNCTION public.eh_admin_portal() TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.pode_gravar_modulo(m text) RETURNS boolean
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.user_modules
+                  WHERE user_id = auth.uid() AND modulo = m AND papel IN ('editor', 'admin'))
+      OR public.eh_admin_portal();
+$$;
+
+CREATE OR REPLACE FUNCTION public.trib_is_user() RETURNS boolean
+  LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT public.tem_modulo('tributos') OR public.eh_admin_portal();
+$$;
+CREATE OR REPLACE FUNCTION public.cnpj_is_user() RETURNS boolean
+  LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT public.tem_modulo('cnpj') OR public.eh_admin_portal();
+$$;
+CREATE OR REPLACE FUNCTION public.y570_is_user() RETURNS boolean
+  LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT public.tem_modulo('y570') OR public.eh_admin_portal();
+$$;
+CREATE OR REPLACE FUNCTION public.cpf_is_user() RETURNS boolean
+  LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT public.tem_modulo('cpf') OR public.eh_admin_portal();
+$$;
+
+COMMIT;
+
+SELECT
+  (SELECT count(*) FROM pg_proc WHERE proname = 'eh_admin_portal') AS funcao,
+  (SELECT count(*) FROM public.user_modules WHERE modulo = 'portal' AND papel = 'admin') AS admins_do_portal,
+  (SELECT count(DISTINCT user_id) FROM public.user_modules m
+    WHERE papel = 'admin' AND modulo <> 'portal'
+      AND NOT EXISTS (SELECT 1 FROM public.user_modules p WHERE p.user_id = m.user_id AND p.modulo = 'portal')) AS admin_de_modulo_sem_portal;

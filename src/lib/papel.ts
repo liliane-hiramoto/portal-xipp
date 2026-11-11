@@ -21,8 +21,8 @@ export const MODULOS_ACESSO: { key: string; label: string }[] = [
 ];
 
 // Papel do usuário logado num módulo qualquer (viewer | editor | admin), ou
-// "nenhum". Admin do portal (papel admin em algum módulo) vale como admin em
-// todos — a mesma régua de ehAdmin() e de pode_gravar_modulo() no banco.
+// "nenhum". Admin do PORTAL vale como admin em todos — a mesma régua de
+// ehAdmin() e de pode_gravar_modulo() no banco (0013).
 export async function papelNoModulo(modulo: string): Promise<string> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -39,13 +39,22 @@ export async function papelNoModulo(modulo: string): Promise<string> {
 // Super-admin de bootstrap (garante acesso ao Admin mesmo sem linha 'admin').
 export const SUPER_ADMIN = "liliane.hiramoto@grupoflorida.com.br";
 
+// Admin do PORTAL = a super-admin pelo e-mail OU a linha explícita
+// user_modules (modulo 'portal', papel 'admin'), ligada na tela Acessos.
+// ⚠️ Desde a 0013 (11/11/2026, decisão dela: "Separar"), papel 'admin' num
+// MÓDULO é admin só daquele módulo — não cria contas nem dá acesso a nada.
+// Antes, admin em qualquer módulo era admin do portal inteiro, e um perfil com
+// "admin" promovia a pessoa sem querer. O banco usa a mesma régua:
+// public.eh_admin_portal().
+export const MODULO_PORTAL = "portal";
+
 export async function ehAdmin(): Promise<boolean> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
   if ((user.email ?? "").toLowerCase() === SUPER_ADMIN) return true;
-  const { data } = await supabase.from("user_modules").select("papel");
-  return (data ?? []).some((r) => (r as { papel: string }).papel === "admin");
+  const { data } = await supabase.from("user_modules").select("papel").eq("modulo", MODULO_PORTAL).maybeSingle();
+  return (data as { papel?: string } | null)?.papel === "admin";
 }
 
 // Bloqueio para rotas de administração de usuários.
