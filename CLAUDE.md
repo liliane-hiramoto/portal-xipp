@@ -94,6 +94,25 @@ tela é bug: vai para o `portal.ts`.
 - `module_state` (0001/0004) sobrou do modelo Conta Azul e não é usada; fica
   porque a 0004 cria o `pode_gravar_modulo()` que as réguas usam.
 
+## Catálogo de cards e acessos no banco (0014, 11/11/2026 — o desenho do RQ e da Inexx)
+Pedido dela: os portais com a mesma estrutura de cards e acessos. Aqui as
+Etapas 1 e 2 vieram JUNTAS (um SQL só):
+- `core.modulos` (os 6 cards de `MODULOS`, agora em `src/lib/modulos.ts`) e
+  `core.acessos` (cópia de `user_modules`, inclusive a linha `portal`, mantida
+  por gatilho). Views `public.modulos`/`public.acessos` (`security_invoker`, só
+  leitura).
+- A home (`(portal)/page.tsx`) monta o menu com `cardsDoMenu`/`cardsVisiveis`
+  e o proxy confere as zonas com `lerAcessos` (`src/lib/modulos-db.ts`).
+  ⚠️ Nada pode tirar acesso: view ausente, erro ou vazio caem na lista do
+  código e no `user_modules`; o só-admin do código (Acessos) não sai nem que o
+  banco diga.
+- ⚠️ A régua de admin é a da 0013: `core.eh_admin_portal()` chama
+  `public.eh_admin_portal()` (super-admin ou a linha `portal`); a ★
+  (`admin_modulo`) é derivada do papel admin num módulo de verdade.
+- As Etapas 3 (editar card pela tela) e 5 (`core.acessos` dono único) mexem em
+  Acessos, que outra sessão está unificando no acesso-core: combinar antes.
+- Teste: `scripts/testar-modulos-db.mjs` (CI) e `supabase/testes/core_acessos.sh`.
+
 ## Kit de tela
 `liliane-hiramoto/kit-core`, espelho em `src/vendor/kit-core/` — não edite.
 Tela nova usa o kit (`<Kpi>`, `<Tabela>`, `<Aba>`/`<TiraAbas>`…).

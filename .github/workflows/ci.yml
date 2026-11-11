@@ -54,6 +54,8 @@ jobs:
         run: node scripts/conferir-hoje.mjs
       - name: Nenhuma senha fixa no código
         run: node scripts/conferir-senha.mjs
+      - name: Menu lido do banco (cards e acessos, com o código de reserva)
+        run: node --experimental-strip-types scripts/testar-modulos-db.mjs
       - name: Build
         run: npm run build
       - name: RLS em Postgres descartável
