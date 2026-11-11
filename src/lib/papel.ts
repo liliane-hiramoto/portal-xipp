@@ -30,6 +30,7 @@ export async function papelNoModulo(modulo: string): Promise<string> {
   const { data } = await supabase
     .from("user_modules")
     .select("papel")
+    .eq("user_id", user.id) // desde a Etapa 5 o admin enxerga as linhas de todos
     .eq("modulo", modulo)
     .maybeSingle();
   if (data?.papel) return data.papel as string;
@@ -53,7 +54,10 @@ export async function ehAdmin(): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
   if ((user.email ?? "").toLowerCase() === SUPER_ADMIN) return true;
-  const { data } = await supabase.from("user_modules").select("papel").eq("modulo", MODULO_PORTAL).maybeSingle();
+  // Filtra pela própria pessoa: desde a Etapa 5 (user_modules = view sobre
+  // core.acessos) o admin do portal enxerga as linhas de TODOS, e sem o filtro
+  // o maybeSingle() quebraria com dois admins — e ehAdmin() diria "não".
+  const { data } = await supabase.from("user_modules").select("papel").eq("user_id", user.id).eq("modulo", MODULO_PORTAL).maybeSingle();
   return (data as { papel?: string } | null)?.papel === "admin";
 }
 

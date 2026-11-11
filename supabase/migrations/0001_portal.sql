@@ -37,9 +37,16 @@ create table if not exists public.user_modules (
   papel   text not null default 'editor', -- viewer | editor | admin
   primary key (user_id, modulo)
 );
-alter table public.user_modules enable row level security;
-drop policy if exists user_modules_self on public.user_modules;
-create policy user_modules_self on public.user_modules for select to authenticated using (user_id = auth.uid());
+-- Depois da Etapa 5 do catálogo, public.user_modules é VIEW sobre core.acessos:
+-- rodar esta migração de novo não pode mexer nela como tabela.
+do $um$
+begin
+  if (select relkind from pg_class where oid = 'public.user_modules'::regclass) = 'r' then
+    alter table public.user_modules enable row level security;
+    drop policy if exists user_modules_self on public.user_modules;
+    create policy user_modules_self on public.user_modules for select to authenticated using (user_id = auth.uid());
+  end if;
+end $um$;
 
 create or replace function public.tem_modulo(m text)
 returns boolean language sql stable security definer set search_path = public as $$

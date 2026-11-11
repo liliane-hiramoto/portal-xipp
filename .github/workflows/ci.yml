@@ -56,6 +56,8 @@ jobs:
         run: node scripts/conferir-senha.mjs
       - name: Menu lido do banco (cards e acessos, com o código de reserva)
         run: node --experimental-strip-types scripts/testar-modulos-db.mjs
+      - name: user_modules — leitura filtrada pela pessoa, gravação só pelas funções (Etapa 5)
+        run: node scripts/conferir-acessos.mjs
       - name: Build
         run: npm run build
       - name: RLS em Postgres descartável

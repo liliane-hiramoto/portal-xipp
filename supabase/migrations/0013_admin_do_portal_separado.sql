@@ -22,11 +22,18 @@
 BEGIN;
 
 -- ---------- 1. quem já era admin do portal continua sendo ----------
-INSERT INTO public.user_modules (user_id, modulo, papel)
-SELECT DISTINCT user_id, 'portal', 'admin'
-  FROM public.user_modules
- WHERE papel = 'admin' AND modulo <> 'portal'
-ON CONFLICT (user_id, modulo) DO NOTHING;
+-- (Só enquanto user_modules é tabela: depois da Etapa 5 ela é view, e este
+-- passo já foi feito.)
+DO $um$
+BEGIN
+  IF (SELECT relkind FROM pg_class WHERE oid = 'public.user_modules'::regclass) = 'r' THEN
+    INSERT INTO public.user_modules (user_id, modulo, papel)
+    SELECT DISTINCT user_id, 'portal', 'admin'
+      FROM public.user_modules
+     WHERE papel = 'admin' AND modulo <> 'portal'
+    ON CONFLICT (user_id, modulo) DO NOTHING;
+  END IF;
+END $um$;
 
 -- ---------- 2. a régua do admin do portal ----------
 CREATE OR REPLACE FUNCTION public.eh_admin_portal() RETURNS boolean

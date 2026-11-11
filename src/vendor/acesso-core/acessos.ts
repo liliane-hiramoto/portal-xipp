@@ -399,3 +399,34 @@ export function perfisTabelas(sb: Sb): PortaPerfis {
     },
   };
 }
+
+/** A função do banco ainda não existe (a migração não foi aplicada). */
+const semFuncao = (e: { code?: string; message?: string } | null | undefined) =>
+  !!e && (e.code === "PGRST202" || e.code === "42883" || /could not find the function|does not exist/i.test(e.message ?? ""));
+
+/**
+ * Acessos gravados por FUNÇÕES do banco, com a SESSÃO de quem pede — a régua
+ * fica dentro delas (core.acessos, Etapa 5 do catálogo):
+ *   conceder_modulo(p_user_id, p_modulo, p_papel) · revogar_modulo(p_user_id, p_modulo)
+ *   marcar_admin_portal(p_user_id, p_valor)
+ * A leitura vai pela service role (`servico`). Sem a função no banco, cai na
+ * tabela de sempre (`tabela`), com a service role — a rota já conferiu o admin.
+ */
+export function acessosFuncoes(sessao: Sb, servico: Sb, tabela = "user_modules"): PortaGuarda {
+  const reserva = acessosUserModules(servico, tabela);
+  const chama = async (fn: string, args: Record<string, unknown>, senao: () => Promise<void>) => {
+    const r = await sessao.rpc(fn, args);
+    if (!r?.error) return;
+    if (semFuncao(r.error)) return senao();
+    throw new Error(r.error.message ?? `falhou ${fn}`);
+  };
+  return {
+    listar: reserva.listar,
+    conceder: (user_id, modulo, papel) =>
+      chama("conceder_modulo", { p_user_id: user_id, p_modulo: modulo, p_papel: papel }, () => reserva.conceder(user_id, modulo, papel)),
+    revogar: (user_id, modulo) =>
+      chama("revogar_modulo", { p_user_id: user_id, p_modulo: modulo }, () => reserva.revogar(user_id, modulo)),
+    marcarAdminPortal: (user_id, valor) =>
+      chama("marcar_admin_portal", { p_user_id: user_id, p_valor: valor }, () => reserva.marcarAdminPortal(user_id, valor)),
+  };
+}
