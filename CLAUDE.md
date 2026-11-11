@@ -40,7 +40,7 @@ Hub com cards por módulo (`src/components/PortalHub.tsx`):
 | Y570 · ECF | `/y570` | app compartilhado `y570-app`; histórico e PDFs no banco do portal (`/api/y570-base`) |
 | Consulta CPF | `/cpf` | deste app; Serpro v3 (CPF + nascimento), chaves só no servidor. **Card FECHADO, "pendente Serpro"** (01/11/2026, pedido dela) — ⚠️ o que ela quer é o município da pessoa, e a v3 não devolve endereço |
 | Cadastros | `/cadastros` | todo logado lê; admin inclui/exclui empresa (Receita preenche) |
-| Acessos | `/acessos` | só admin; o modelo da Flórida (01/11/2026): **Pessoas** (lista + ficha do login), **Por módulo** e **Perfis de acesso** (0012). `/admin` redireciona para cá |
+| Acessos | `/acessos` | só admin; o modelo da Flórida (01/11/2026): **Pessoas** (lista + ficha do login), **Por módulo** e **Perfis de acesso** (0012). `/admin` redireciona para cá. **A tela e as travas vêm do `acesso-core`** (`acessos-tela.tsx`/`acessos.ts`, 11/11/2026 — a mesma em todo portal); aqui só a porta, em `api/acessos/route.ts` |
 
 **Identidade** = `src/config/portal.ts` + as 6 cores de `:root` em
 `src/app/(portal)/globals.css` + `public/`. Nome de empresa escrito à mão em

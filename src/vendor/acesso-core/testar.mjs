@@ -55,7 +55,7 @@ for (const [nome, h] of Object.entries(manifesto.arquivos)) {
 for (const n of naPasta.filter((n) => n.endsWith(".teste.mjs"))) {
   console.log(`\n${n}:`);
   const mod = await import(pathToFileURL(join(DIR, n)).href);
-  mod.default({ ok, eq });
+  await mod.default({ ok, eq });
 }
 
 console.log(`\n${passou} ok, ${falhou} falhou`);

@@ -1,7 +1,10 @@
 {
   "fonte": "liliane-hiramoto/acesso-core",
   "arquivos": {
-    "README.md": "0094eb8208108b908332c1d83004f1fcbbd6327536f89516bd78fa2a0f5ba098",
+    "README.md": "8f810bf6f2de875643e869790d731894eec6209981d9f059312e863be405f55e",
+    "acessos-tela.tsx": "9c64e501fb0be9c80eb2e30d78be25886c37b29f840c065191c59ac3468c6928",
+    "acessos.teste.mjs": "c862ce799ac89bacd521dab7b612a19862833151c5dfb167750fdaf9085aefd4",
+    "acessos.ts": "7e4272d7658035be924469d735e917da43d9e703113df7533b0ce94bbd5d6c9e",
     "entrada.ts": "0364b659977ee096ba26228ba1cd20149ba75c91b6bc8581e4bda0fdada2153b",
     "inatividade.teste.mjs": "4b3c527c9052ac823b1530476aed45409c3d9c1d07a9274b792ec3392a87e31c",
     "inatividade.ts": "c973704dd0756e9dedc3237f8ce4daf52967fe444b9e40b8a792b211340341f2",
@@ -12,8 +15,8 @@
     "senha.teste.mjs": "deafcdaffd99a41f63f96cc374670dc68eca9e816d889f5836a78cebf0e849b7",
     "senha.ts": "7d7940cd4e2c29b675be94ace06326d0f9d2a96e5d0993e5fcfe0851602bc4ef",
     "sessao.ts": "ab4cded7c8b4c2290f5460a01509530cd08d7efe4452ddf1e17e0ff8af3eea77",
-    "telas.tsx": "8b293e42ebce49d499399ecf46713f49d53101709aab3c8eff03cf1d24d06cb7",
-    "testar.mjs": "0425172c926800bc3a38ce1f0e9ddd2698deaec5fb1f1a07b5fb0402a0c9223c",
+    "telas.tsx": "2b4b0502462bad995ecc7d9938657a3d6aad3df463ea41d0a60f9dfeae7b9c7c",
+    "testar.mjs": "dfd1ca1dfd0f5571e0c24bcce245cfffd0a5f017d915a897855de763c7c60243",
     "vigia.tsx": "6949e98f0f51b4a6a1a89ce50becceb0f20cd48af6a644d1fd45359f401f704f"
   }
 }
