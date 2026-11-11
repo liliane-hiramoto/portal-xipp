@@ -109,8 +109,21 @@ Etapas 1 e 2 vieram JUNTAS (um SQL só):
 - ⚠️ A régua de admin é a da 0013: `core.eh_admin_portal()` chama
   `public.eh_admin_portal()` (super-admin ou a linha `portal`); a ★
   (`admin_modulo`) é derivada do papel admin num módulo de verdade.
-- As Etapas 3 (editar card pela tela) e 5 (`core.acessos` dono único) mexem em
-  Acessos, que outra sessão está unificando no acesso-core: combinar antes.
+- **Etapa 5 (0015): `core.acessos` é o dono único.** `public.user_modules` vira
+  VIEW de leitura sobre ele (a tabela velha fica em `core.user_modules_ate_etapa5`);
+  as funções de RLS leem pelo nome e passam a ler a verdade nova. Gravar só por
+  `conceder_modulo` / `revogar_modulo` / `marcar_admin_portal` — as MESMAS em
+  todo portal, chamadas pela porta `acessosFuncoes` do acesso-core com a SESSÃO
+  (`api/acessos/route.ts`); a régua vai por dentro: só admin do portal concede,
+  ninguém muda o próprio admin do portal, conceder/revogar não chegam à 'portal'.
+  ⚠️ Leitura de `user_modules` com a sessão tem de filtrar por `user_id`: o admin
+  do portal passa a enxergar as linhas de todos (`ehAdmin`/`papelNoModulo`
+  quebravam com dois admins). `scripts/conferir-acessos.mjs` (CI) barra a
+  leitura sem o filtro e a gravação direta.
+  ⚠️ Rodar de novo as migrações é seguro: a 0001, a 0013 e a 0014 só mexem em
+  `user_modules` enquanto ela é TABELA (o `setup.sh` aplica o SETUP duas vezes).
+- A Etapa 3 (editar card pela tela) vai virar uma aba da tela única de Acessos
+  (acesso-core, `abasExtras`).
 - Teste: `scripts/testar-modulos-db.mjs` (CI) e `supabase/testes/core_acessos.sh`.
 
 ## Kit de tela

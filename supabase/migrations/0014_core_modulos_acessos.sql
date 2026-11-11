@@ -116,10 +116,16 @@ begin
   return new;
 end $$;
 revoke all on function core.espelhar_user_modules() from public, anon, authenticated;
-drop trigger if exists trg_espelhar_user_modules on public.user_modules;
-create trigger trg_espelhar_user_modules
-  after insert or update or delete on public.user_modules
-  for each row execute function core.espelhar_user_modules();
+-- (Só enquanto user_modules é tabela: depois da Etapa 5 não há o que espelhar.)
+do $um$
+begin
+  if (select relkind from pg_class where oid = 'public.user_modules'::regclass) = 'r' then
+    drop trigger if exists trg_espelhar_user_modules on public.user_modules;
+    create trigger trg_espelhar_user_modules
+      after insert or update or delete on public.user_modules
+      for each row execute function core.espelhar_user_modules();
+  end if;
+end $um$;
 
 -- RLS: todo login lê os cards; só admin do portal altera. Cada um vê os SEUS
 -- acessos; o admin do portal vê todos, e o de módulo, os do módulo dele.

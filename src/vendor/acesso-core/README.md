@@ -14,7 +14,7 @@ o que os cinco portais fazem igual.
 | `passe.ts` | "Entrar pelo Flórida": assinar e conferir o passe (Ed25519, 60 s, um portal só) e a página que o entrega por POST | servidor |
 | `entrada.ts` | `entrarComPasse()` para `POST /auth/florida`: confere o passe com a chave pública do Flórida e abre a sessão da conta de mesmo e-mail (nunca cria conta) | servidor |
 | `inatividade.ts` | regras puras da saída: minutos por rota (curto é o padrão), atividade compartilhada entre abas | os dois |
-| `acessos.ts` | a regra da tela de Acessos: `listarAcessos(porta)` e `tratarAcao(porta, corpo)` (as travas: ninguém se inativa/exclui/muda o próprio admin do portal, a super-admin protegida, papel por módulo, senha sorteada) e os atalhos da porta (`loginsSupabase`, `acessosUserModules`, `perfisTabelas`) | servidor |
+| `acessos.ts` | a regra da tela de Acessos: `listarAcessos(porta)` e `tratarAcao(porta, corpo)` (as travas: ninguém se inativa/exclui/muda o próprio admin do portal, a super-admin protegida, papel por módulo, senha sorteada) e os atalhos da porta (`loginsSupabase`, `acessosUserModules`, `acessosFuncoes` — gravar pelas funções do banco com a sessão —, `perfisTabelas`) | servidor |
 | `acessos-tela.tsx` | `<TelaAcessos meuId>`: Pessoas (lista + ficha), Por módulo e Perfis, falando com a `/api/acessos` do portal | navegador |
 
 **Sem barril (`index.ts`) de propósito:** a tela é do navegador e as rotas são

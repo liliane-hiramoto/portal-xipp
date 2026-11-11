@@ -48,7 +48,7 @@ SQL
 U=00000000-0000-0000-0000-00000000000
 # Antes da 0016: o banco de hoje (todas as migrações até a 0013), com gente.
 for f in $(ls supabase/migrations/*.sql | sort); do
-  case "$f" in *0006_empresa.sql|*0014_core_modulos_acessos.sql) continue;; esac
+  case "$f" in *0006_empresa.sql|*0015_core_acessos_dono_unico.sql|*0014_core_modulos_acessos.sql) continue;; esac
   Q -f "$f" >/dev/null 2>"$DIR/err" || { echo "✗ aplicar $f"; cat "$DIR/err"; exit 1; }
 done
 Q <<SQL >/dev/null || { echo "✗ cenário"; exit 1; }
@@ -96,5 +96,42 @@ confere "a view não se grava (nem o admin do portal)"   "$(faz 4 "update public
 confere "admin SÓ do tributos não altera card"          "$(como 3 "with u as (update core.modulos set label='x' where key='tributos' returning 1) select count(*) from u")" 0
 confere "ninguém da tela escreve acesso direto"         "$(faz 1 "insert into core.acessos (user_id, modulo) values ('${U}2', 'y570')")" barrou
 confere "views com security_invoker"                    "$(conta "select bool_and(coalesce(reloptions::text,'') like '%security_invoker=true%') from pg_class where oid in ('public.modulos'::regclass,'public.acessos'::regclass)")" t
+
+# ── Etapa 5 (0015): core.acessos vira o dono único ──
+# Uma política de OUTRA tabela presa a user_modules pelo identificador: tem de
+# sobreviver, agora lendo a view.
+Q -c "create policy teste_presa on public.empresas for select to authenticated using (exists (select 1 from public.user_modules um where um.user_id = auth.uid() and um.modulo = 'tributos'));" >/dev/null
+Q -c "insert into auth.users (id, email) values ('${U}5', 'novo@exemplo.com');" >/dev/null
+EMAIL+=(novo@exemplo.com)
+for vez in 1 2; do  # idempotente
+  Q -f supabase/migrations/0015_core_acessos_dono_unico.sql >/dev/null 2>"$DIR/err" || { echo "✗ aplicar 0015 ($vez)"; cat "$DIR/err"; exit 1; }
+done
+confere "0015: user_modules virou view"                 "$(conta "select relkind from pg_class where oid='public.user_modules'::regclass")" v
+confere "0015: a tabela velha guardada"                 "$(conta "select count(*) from core.user_modules_ate_etapa5")" 5
+confere "0015: conferência da migração"                 "$(Q -tAc "$(sed -n '/^-- Conferência/,$p' supabase/migrations/0015_core_acessos_dono_unico.sql | grep -v '^--')" | tail -1)" "view|t|0|t"
+confere "0015: a política presa voltou"                 "$(conta "select count(*) from pg_policies where policyname='teste_presa'")" 1
+confere "0015: a linha 'portal' ainda faz admin do portal" "$(como 4 "select public.eh_admin_portal()")" t
+confere "0015: admin SÓ do tributos não é admin do portal" "$(como 3 "select public.eh_admin_portal()")" f
+confere "0015: viewer do tributos lê e não grava"       "$(como 2 "select public.trib_is_user()::text || public.pode_gravar_modulo('tributos')::text")" truefalse
+confere "0015: gravar direto na view barra"             "$(faz 4 "insert into public.user_modules values ('${U}5', 'tributos', 'viewer')")" barrou
+confere "0015: admin do portal concede"                 "$(faz 4 "select public.conceder_modulo('${U}5', 'tributos', 'editor')")" passou
+confere "0015: …e chega em core.acessos"                "$(conta "select papel from core.acessos where user_id='${U}5' and modulo='tributos'")" editor
+confere "0015: …e a régua do banco já vê"               "$(como 5 "select public.pode_gravar_modulo('tributos')")" t
+confere "0015: admin de módulo vira ★"                  "$(faz 1 "select public.conceder_modulo('${U}5', 'cnpj', 'admin')")" passou
+confere "0015: …e a ★ acende"                           "$(conta "select admin_modulo from core.acessos where user_id='${U}5' and modulo='cnpj'")" t
+confere "0015: admin SÓ do tributos NÃO concede"        "$(faz 3 "select public.conceder_modulo('${U}5', 'tributos', 'viewer')")" barrou
+confere "0015: viewer NÃO concede"                      "$(faz 2 "select public.conceder_modulo('${U}5', 'y570', 'viewer')")" barrou
+confere "0015: admin do portal revoga"                  "$(faz 4 "select public.revogar_modulo('${U}5', 'cnpj')")" passou
+confere "0015: admin SÓ do tributos NÃO revoga"         "$(faz 3 "select public.revogar_modulo('${U}5', 'tributos')")" barrou
+confere "0015: conceder não chega à 'portal'"           "$(faz 4 "select public.conceder_modulo('${U}5', 'portal', 'admin')")" barrou
+confere "0015: revogar também não"                      "$(faz 1 "select public.revogar_modulo('${U}4', 'portal')")" barrou
+confere "0015: admin do portal marca outro"             "$(faz 4 "select public.marcar_admin_portal('${U}5', true)")" passou
+confere "0015: …que passa a ser admin do portal"        "$(como 5 "select public.eh_admin_portal()")" t
+confere "0015: a super-admin desmarca"                  "$(faz 1 "select public.marcar_admin_portal('${U}5', false)")" passou
+confere "0015: ninguém muda o próprio"                  "$(faz 4 "select public.marcar_admin_portal('${U}4', false)")" barrou
+confere "0015: admin SÓ do tributos não marca"          "$(faz 3 "select public.marcar_admin_portal('${U}5', true)")" barrou
+confere "0015: módulo inventado barra"                  "$(faz 4 "select public.conceder_modulo('${U}5', 'inventado', 'viewer')")" barrou
+confere "0015: papel inventado barra"                   "$(faz 4 "select public.conceder_modulo('${U}5', 'tributos', 'dono')")" barrou
+confere "0015: anon não chama"                          "$(Q -tAc "set role anon; select public.conceder_modulo('${U}5', 'tributos', 'viewer')" >/dev/null 2>&1 && echo passou || echo barrou)" barrou
 
 [ "$FALHAS" = 0 ] && echo "core_acessos: tudo ok" || { echo "core_acessos: $FALHAS falha(s)"; exit 1; }

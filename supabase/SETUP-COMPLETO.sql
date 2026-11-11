@@ -1,6 +1,6 @@
 -- SETUP COMPLETO do portal fiscal — GERADO por scripts/montar-setup.mjs, não edite.
 -- Cole tudo no Supabase › SQL Editor do portal novo e clique em Run (uma vez).
--- Junta, na ordem: 0001_portal.sql, 0002_cadastro.sql, 0004_viewer_so_le.sql, 0005_senha_provisoria.sql, 0007_modulo_tributos.sql, 0008_cnpj_base.sql, 0009_modulo_y570.sql, 0010_y570_pdfs_e_cadastro.sql, 0011_consulta_cpf.sql, 0012_perfis_acesso.sql, 0013_admin_do_portal_separado.sql, 0014_core_modulos_acessos.sql.
+-- Junta, na ordem: 0001_portal.sql, 0002_cadastro.sql, 0004_viewer_so_le.sql, 0005_senha_provisoria.sql, 0007_modulo_tributos.sql, 0008_cnpj_base.sql, 0009_modulo_y570.sql, 0010_y570_pdfs_e_cadastro.sql, 0011_consulta_cpf.sql, 0012_perfis_acesso.sql, 0013_admin_do_portal_separado.sql, 0014_core_modulos_acessos.sql, 0015_core_acessos_dono_unico.sql.
 -- A última tabela que aparece é a conferência do catálogo de cards e acessos (6 · true · 1 · true · false).
 
 -- ==================== 0001_portal.sql ====================
@@ -31,9 +31,14 @@ create table if not exists public.user_modules (
   papel   text not null default 'editor', -- viewer | editor | admin
   primary key (user_id, modulo)
 );
-alter table public.user_modules enable row level security;
-drop policy if exists user_modules_self on public.user_modules;
-create policy user_modules_self on public.user_modules for select to authenticated using (user_id = auth.uid());
+do $um$
+begin
+  if (select relkind from pg_class where oid = 'public.user_modules'::regclass) = 'r' then
+    alter table public.user_modules enable row level security;
+    drop policy if exists user_modules_self on public.user_modules;
+    create policy user_modules_self on public.user_modules for select to authenticated using (user_id = auth.uid());
+  end if;
+end $um$;
 
 create or replace function public.tem_modulo(m text)
 returns boolean language sql stable security definer set search_path = public as $$
@@ -596,11 +601,16 @@ SELECT
 -- ==================== 0013_admin_do_portal_separado.sql ====================
 BEGIN;
 
-INSERT INTO public.user_modules (user_id, modulo, papel)
-SELECT DISTINCT user_id, 'portal', 'admin'
-  FROM public.user_modules
- WHERE papel = 'admin' AND modulo <> 'portal'
-ON CONFLICT (user_id, modulo) DO NOTHING;
+DO $um$
+BEGIN
+  IF (SELECT relkind FROM pg_class WHERE oid = 'public.user_modules'::regclass) = 'r' THEN
+    INSERT INTO public.user_modules (user_id, modulo, papel)
+    SELECT DISTINCT user_id, 'portal', 'admin'
+      FROM public.user_modules
+     WHERE papel = 'admin' AND modulo <> 'portal'
+    ON CONFLICT (user_id, modulo) DO NOTHING;
+  END IF;
+END $um$;
 
 CREATE OR REPLACE FUNCTION public.eh_admin_portal() RETURNS boolean
   LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
@@ -729,10 +739,15 @@ begin
   return new;
 end $$;
 revoke all on function core.espelhar_user_modules() from public, anon, authenticated;
-drop trigger if exists trg_espelhar_user_modules on public.user_modules;
-create trigger trg_espelhar_user_modules
-  after insert or update or delete on public.user_modules
-  for each row execute function core.espelhar_user_modules();
+do $um$
+begin
+  if (select relkind from pg_class where oid = 'public.user_modules'::regclass) = 'r' then
+    drop trigger if exists trg_espelhar_user_modules on public.user_modules;
+    create trigger trg_espelhar_user_modules
+      after insert or update or delete on public.user_modules
+      for each row execute function core.espelhar_user_modules();
+  end if;
+end $um$;
 
 alter table core.modulos enable row level security;
 revoke all on core.modulos from anon, authenticated, public;
@@ -772,3 +787,157 @@ select (select count(*) from core.modulos) as cards_de_6,
        (select bool_and(coalesce(reloptions::text, '') like '%security_invoker=true%')
           from pg_class where oid in ('public.modulos'::regclass, 'public.acessos'::regclass)) as sem_furar_rls,
        has_table_privilege('authenticated', 'public.modulos', 'UPDATE') as view_gravavel;
+
+-- ==================== 0015_core_acessos_dono_unico.sql ====================
+begin;
+
+do $$
+begin
+  if exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+              where n.nspname = 'public' and c.relname = 'user_modules' and c.relkind = 'r') then
+
+    declare presos text;
+    begin
+      select string_agg(distinct coalesce(
+               (select 'view ' || ev.ev_class::regclass::text from pg_rewrite ev where ev.oid = d.objid and d.classid = 'pg_rewrite'::regclass),
+               (select 'função ' || pr.oid::regprocedure::text from pg_proc pr where pr.oid = d.objid and d.classid = 'pg_proc'::regclass)
+             ), ', ')
+        into presos
+        from pg_depend d
+       where d.refobjid = 'public.user_modules'::regclass
+         and d.classid in ('pg_rewrite'::regclass, 'pg_proc'::regclass);
+      if presos is not null then
+        raise exception 'Etapa 5 parada, nada foi mexido: ainda há objetos presos a public.user_modules (%). Mande esta mensagem para o Claude.', presos;
+      end if;
+    end;
+
+    create temp table _politicas_presas as
+      select pp.schemaname, pp.tablename, pp.policyname, pp.permissive, pp.roles, pp.cmd, pp.qual, pp.with_check
+        from pg_policy p
+        join pg_class c on c.oid = p.polrelid
+        join pg_namespace n on n.oid = c.relnamespace
+        join pg_policies pp on pp.schemaname = n.nspname and pp.tablename = c.relname and pp.policyname = p.polname
+       where p.polrelid <> 'public.user_modules'::regclass
+         and exists (select 1 from pg_depend d
+                      where d.classid = 'pg_policy'::regclass and d.objid = p.oid
+                        and d.refobjid = 'public.user_modules'::regclass);
+    declare r record;
+    begin
+      for r in select * from _politicas_presas loop
+        execute format('drop policy %I on %I.%I', r.policyname, r.schemaname, r.tablename);
+      end loop;
+    end;
+
+    insert into core.acessos (user_id, modulo, papel, admin_modulo)
+    select um.user_id, um.modulo, um.papel, (um.papel = 'admin' and um.modulo <> 'portal')
+      from public.user_modules um
+    on conflict (user_id, modulo) do update
+      set papel = excluded.papel, admin_modulo = excluded.admin_modulo;
+    delete from core.acessos a
+     where not exists (select 1 from public.user_modules um
+                        where um.user_id = a.user_id and um.modulo = a.modulo);
+
+    drop trigger if exists trg_espelhar_user_modules on public.user_modules;
+
+    alter table public.user_modules set schema core;
+    alter table core.user_modules rename to user_modules_ate_etapa5;
+    revoke all on core.user_modules_ate_etapa5 from anon, authenticated, public;
+    comment on table core.user_modules_ate_etapa5 is
+      'A tabela de acessos até a 0015 (11/11/2026). Só histórico: a verdade é core.acessos.';
+  end if;
+end $$;
+
+drop function if exists core.espelhar_user_modules();
+
+create or replace view public.user_modules with (security_invoker = true) as
+  select user_id, modulo, papel from core.acessos;
+revoke all on public.user_modules from anon, authenticated, public;
+grant select on public.user_modules to authenticated, service_role;
+grant usage on schema core to service_role;
+grant select, insert, update, delete on core.acessos to service_role;
+comment on view public.user_modules is
+  'Etapa 5: o nome de sempre sobre core.acessos, para as funções de RLS e as telas que leem user_modules. Gravar: conceder_modulo / revogar_modulo / marcar_admin_portal.';
+
+create or replace function public.conceder_modulo(p_user_id uuid, p_modulo text, p_papel text)
+returns void language plpgsql security definer set search_path = public, core as $$
+begin
+  if not public.eh_admin_portal() then
+    raise exception 'Só o admin do portal concede acesso.' using errcode = '42501';
+  end if;
+  if p_modulo = 'portal' then
+    raise exception 'O admin do portal se liga em marcar_admin_portal.' using errcode = '22023';
+  end if;
+  if p_papel not in ('viewer', 'editor', 'admin') then
+    raise exception 'Papel desconhecido: %.', p_papel using errcode = '22023';
+  end if;
+  if not exists (select 1 from core.modulos where key = p_modulo) then
+    raise exception 'Módulo desconhecido: %.', p_modulo using errcode = '22023';
+  end if;
+  insert into core.acessos (user_id, modulo, papel, admin_modulo, criado_por)
+  values (p_user_id, p_modulo, p_papel, p_papel = 'admin', auth.uid())
+  on conflict (user_id, modulo) do update
+    set papel = excluded.papel, admin_modulo = excluded.admin_modulo;
+end $$;
+
+create or replace function public.revogar_modulo(p_user_id uuid, p_modulo text)
+returns void language plpgsql security definer set search_path = public, core as $$
+begin
+  if not public.eh_admin_portal() then
+    raise exception 'Só o admin do portal revoga acesso.' using errcode = '42501';
+  end if;
+  if p_modulo = 'portal' then
+    raise exception 'O admin do portal se desliga em marcar_admin_portal.' using errcode = '22023';
+  end if;
+  delete from core.acessos where user_id = p_user_id and modulo = p_modulo;
+end $$;
+
+create or replace function public.marcar_admin_portal(p_user_id uuid, p_valor boolean)
+returns void language plpgsql security definer set search_path = public, core as $$
+begin
+  if not public.eh_admin_portal() then
+    raise exception 'Só o admin do portal muda o admin do portal.' using errcode = '42501';
+  end if;
+  if p_user_id = auth.uid() then
+    raise exception 'Ninguém muda o próprio admin do portal.' using errcode = '42501';
+  end if;
+  if p_valor then
+    insert into core.acessos (user_id, modulo, papel, admin_modulo, criado_por)
+    values (p_user_id, 'portal', 'admin', false, auth.uid())
+    on conflict (user_id, modulo) do update set papel = 'admin', admin_modulo = false;
+  else
+    delete from core.acessos where user_id = p_user_id and modulo = 'portal';
+  end if;
+end $$;
+
+do $$
+declare r record;
+begin
+  if to_regclass('pg_temp._politicas_presas') is null then return; end if;  -- 2ª rodada: nada a recriar
+  for r in select * from _politicas_presas loop
+    execute format('create policy %I on %I.%I as %s for %s to %s%s%s',
+      r.policyname, r.schemaname, r.tablename, r.permissive, r.cmd,
+      (select string_agg(case when x = 'public' then 'public' else quote_ident(x) end, ', ') from unnest(r.roles) x),
+      case when r.qual is not null then ' using (' || r.qual || ')' else '' end,
+      case when r.with_check is not null then ' with check (' || r.with_check || ')' else '' end);
+    raise notice 'Política recriada sobre a view nova: % em %.%', r.policyname, r.schemaname, r.tablename;
+  end loop;
+  drop table _politicas_presas;
+end $$;
+
+revoke all on function public.conceder_modulo(uuid, text, text), public.revogar_modulo(uuid, text),
+  public.marcar_admin_portal(uuid, boolean) from public, anon;
+grant execute on function public.conceder_modulo(uuid, text, text), public.revogar_modulo(uuid, text),
+  public.marcar_admin_portal(uuid, boolean) to authenticated;
+
+commit;
+
+select (select case relkind when 'v' then 'view' else 'TABELA' end from pg_class
+         where oid = 'public.user_modules'::regclass) as user_modules_agora,
+       not exists (select 1 from core.user_modules_ate_etapa5 v
+                    where not exists (select 1 from core.acessos a
+                                       where a.user_id = v.user_id and a.modulo = v.modulo
+                                         and a.papel = v.papel)) as nada_se_perdeu,
+       (select count(*) from pg_trigger where tgname = 'trg_espelhar_user_modules') as espelho,
+       (select bool_and(has_function_privilege('authenticated', f, 'EXECUTE'))
+          from unnest(array['public.conceder_modulo(uuid,text,text)', 'public.revogar_modulo(uuid,text)',
+                            'public.marcar_admin_portal(uuid,boolean)']) f) as funcoes_ligadas;

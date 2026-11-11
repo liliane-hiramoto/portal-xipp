@@ -43,7 +43,9 @@ SQL
 for i in 1 2; do
   Q -f supabase/SETUP-COMPLETO.sql >/dev/null 2>"$DIR/err" || { echo "✗ SETUP-COMPLETO.sql ($i)"; cat "$DIR/err"; exit 1; }
 done
-tab=$(Q -tAc "select count(*) from pg_tables where schemaname = 'public' and tablename in ('user_modules','empresas','trib_darfs','trib_cnpj_base','y570_processamentos','cpf_consultas');")
+# user_modules conta como tabela OU view: desde a Etapa 5 do catálogo ela é a
+# view de leitura sobre core.acessos.
+tab=$(Q -tAc "select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind in ('r','v') and c.relname in ('user_modules','empresas','trib_darfs','trib_cnpj_base','y570_processamentos','cpf_consultas');")
 bkt=$(Q -tAc "select count(*) from storage.buckets where id in ('darf-pdfs','docs-fiscais','y570-pdfs') and not public;")
 semrls=$(Q -tAc "select count(*) from pg_tables where schemaname = 'public' and not rowsecurity;")
 # 0012: perfis de acesso só pelo servidor (RLS sem política nenhuma) e os 2 de exemplo.

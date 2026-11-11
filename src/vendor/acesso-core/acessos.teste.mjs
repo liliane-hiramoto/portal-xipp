@@ -1,6 +1,6 @@
 // Teste da regra da tela de Acessos — vai junto no espelho. Uma porta de
 // mentira, em memória, no lugar do Supabase.
-import { listarAcessos, tratarAcao, itensValidos, MODULO_PORTAL } from "./acessos.ts";
+import { listarAcessos, tratarAcao, itensValidos, acessosFuncoes, MODULO_PORTAL } from "./acessos.ts";
 
 const SUPER = "dona@exemplo.com";
 function portaFalsa(euId = "eu") {
@@ -120,4 +120,65 @@ export default async function testeAcessos(t) {
     t.ok("erro da porta vira 500 com a mensagem (não some)", r.status === 500 && r.corpo.error === "banco fora");
     t.eq("ação desconhecida", (await tratarAcao(porta, { acao: "xyz" })).status, 400);
   }
+  await testePortaFuncoes(t);
+  await testeEscopo(t);
+}
+
+export async function testePortaFuncoes(t) {
+  const chamadas = [];
+  const tabelaFalsa = () => {
+    const q = { _op: null, upsert(v) { chamadas.push(["tabela.upsert", v]); return Promise.resolve({ error: null }); },
+      delete() { return { eq: () => ({ eq: () => { chamadas.push(["tabela.delete"]); return Promise.resolve({ error: null }); } }) }; },
+      select() { return Promise.resolve({ data: [{ user_id: "a", modulo: "fin", papel: "viewer" }], error: null }); } };
+    return { from: () => q };
+  };
+  const sessao = (erro) => ({ rpc: async (fn, args) => { chamadas.push(["rpc", fn, args]); return { error: erro }; } });
+
+  let p = acessosFuncoes(sessao(null), tabelaFalsa());
+  await p.conceder("a", "fin", "editor");
+  t.eq("com a função: grava pela função, com a sessão", chamadas.at(-1), ["rpc", "conceder_modulo", { p_user_id: "a", p_modulo: "fin", p_papel: "editor" }]);
+  await p.marcarAdminPortal("a", true);
+  t.eq("admin do portal pela marcar_admin_portal", chamadas.at(-1)[1], "marcar_admin_portal");
+  t.eq("lê pela service role", (await p.listar()).length, 1);
+
+  p = acessosFuncoes(sessao({ code: "PGRST202", message: "Could not find the function" }), tabelaFalsa());
+  await p.conceder("a", "fin", "editor");
+  t.eq("sem a função: cai na tabela", chamadas.at(-1)[0], "tabela.upsert");
+
+  p = acessosFuncoes(sessao({ code: "42501", message: "Só o admin do portal concede." }), tabelaFalsa());
+  let msg = "";
+  try { await p.conceder("a", "fin", "editor"); } catch (e) { msg = e.message; }
+  t.eq("recusa da régua NÃO cai na tabela: vira erro", msg, "Só o admin do portal concede.");
+}
+
+export async function testeEscopo(t) {
+  let linhas = [
+    { user_id: "ana", modulo: "fin", papel: "admin" },
+    { user_id: "bia", modulo: "fin", papel: "viewer" },
+    { user_id: "bia", modulo: "outro", papel: "editor" },
+  ];
+  const login = (id) => ({ id, email: `${id}@x.com`, nome: id, ultimo_acesso: null, banido_ate: null });
+  const porta = {
+    superAdmin: "dona@x.com", euId: "eu", escopo: ["fin"],
+    modulos: [{ key: "fin", label: "Financeiro" }, { key: "outro", label: "Outro" }],
+    logins: { listar: async () => ["ana", "bia", "cris"].map(login), ler: async (id) => login(id), criar: async () => "x", atualizar: async () => {}, excluir: async () => {} },
+    acessos: {
+      listar: async () => linhas,
+      conceder: async (u, m, p) => { linhas = [...linhas.filter((l) => !(l.user_id === u && l.modulo === m)), { user_id: u, modulo: m, papel: p }]; },
+      revogar: async (u, m) => { linhas = linhas.filter((l) => !(l.user_id === u && l.modulo === m)); },
+      marcarAdminPortal: async () => {},
+    },
+    perfis: { listar: async () => [], salvar: async () => 1, excluir: async () => {} },
+  };
+  const d = await listarAcessos(porta);
+  t.eq("admin de módulo vê só os módulos dele", d.modulos.map((m) => m.key), ["fin"]);
+  t.eq("…e o papel admin não é oferecido", d.modulos[0].papeis, ["viewer", "editor"]);
+  t.eq("…e o que a pessoa tem fora dele não aparece", d.usuarios.find((u) => u.id === "bia").acessos, [{ modulo: "fin", papel: "viewer" }]);
+  t.ok("…sem perfis, com o escopo dito", !("perfis" in d) && d.escopo[0] === "fin");
+  t.eq("dar acesso no módulo dele passa", (await tratarAcao(porta, { acao: "conceder_acesso", user_id: "cris", modulo: "fin", papel: "editor" })).status, 200);
+  t.eq("dar o papel admin é recusado", (await tratarAcao(porta, { acao: "conceder_acesso", user_id: "cris", modulo: "fin", papel: "admin" })).status, 403);
+  t.eq("módulo que não administra é recusado", (await tratarAcao(porta, { acao: "conceder_acesso", user_id: "cris", modulo: "outro", papel: "viewer" })).status, 403);
+  t.eq("mexer em quem é admin do módulo é recusado", (await tratarAcao(porta, { acao: "revogar_acesso", user_id: "ana", modulo: "fin" })).status, 403);
+  for (const acao of ["criar_usuario", "trocar_senha", "ativo", "excluir_usuario", "admin_portal", "salvar_perfil", "aplicar_perfil", "editar_usuario"])
+    t.eq(`admin de módulo não faz "${acao}"`, (await tratarAcao(porta, { acao, user_id: "bia", email: "a@x.com", nome: "x" })).status, 403);
 }
