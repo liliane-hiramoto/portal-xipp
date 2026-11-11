@@ -44,8 +44,9 @@ export interface Login {
   app_metadata?: Record<string, unknown>;
   user_metadata?: Record<string, unknown>;
 }
-export interface LinhaAcesso { user_id: string; modulo: string; papel: string }
+export interface LinhaAcesso { user_id: string; modulo: string; papel: string; /** a ★ (admin do módulo) */ admin_modulo?: boolean }
 export interface PerfilItem { modulo: string; papel: string }
+export interface AcessoPessoa extends PerfilItem { /** a ★: administra este módulo */ admin_modulo?: boolean }
 export interface Perfil { id: number; nome: string; descricao: string | null; ordem: number; ativo: boolean; itens: PerfilItem[] }
 
 export interface PortaLogins {
@@ -60,7 +61,18 @@ export interface PortaGuarda {
   listar(): Promise<LinhaAcesso[]>;
   conceder(user_id: string, modulo: string, papel: string): Promise<void>;
   revogar(user_id: string, modulo: string): Promise<void>;
-  marcarAdminPortal(user_id: string, valor: boolean): Promise<void>;
+  /** Sem ela, o portal não tem "admin do portal" pela tela (só a super-admin). */
+  marcarAdminPortal?(user_id: string, valor: boolean): Promise<void>;
+  /** A ★ (Etapa 4): admin DESTE módulo. Sem ela, a tela não oferece a ★. */
+  marcarAdminModulo?(user_id: string, modulo: string, valor: boolean): Promise<void>;
+}
+/** Campo da ficha da pessoa (o que o portal guarda além do login). */
+export interface CampoFicha { key: string; label: string; tipo?: "texto" | "data" | "telefone" }
+export interface PortaFicha {
+  campos: CampoFicha[];
+  /** user_id → campo → valor. */
+  ler(): Promise<Record<string, Record<string, string | null>>>;
+  salvar(user_id: string, valores: Record<string, string | null>): Promise<void>;
 }
 export interface PortaPerfis {
   /** null = as tabelas não existem neste banco (a aba avisa). */
@@ -78,6 +90,8 @@ export interface PortaAcessos {
   acessos: PortaGuarda;
   /** Sem perfis neste portal: a aba Perfis não aparece. */
   perfis?: PortaPerfis;
+  /** A ficha da pessoa (nome completo, telefone…), se o portal guarda. */
+  ficha?: PortaFicha;
   /**
    * ADMIN DE MÓDULO (a ★ da Etapa 4; a régua da 0008 da Affix): quem pede NÃO
    * é admin do portal, mas administra estes módulos. Vê só eles e só dá/tira
@@ -92,7 +106,8 @@ export interface PortaAcessos {
 export interface Pessoa {
   id: string; email: string; nome: string; ultimo_acesso: string | null;
   ativo: boolean; super_admin: boolean; admin_portal: boolean;
-  acessos: PerfilItem[];
+  acessos: AcessoPessoa[];
+  ficha?: Record<string, string | null>;
 }
 export interface DadosAcessos {
   usuarios: Pessoa[];
@@ -101,6 +116,8 @@ export interface DadosAcessos {
   perfis?: Perfil[] | null;
   /** Presente = quem vê é admin SÓ destes módulos (a tela esconde o resto). */
   escopo?: string[];
+  /** O que a porta deste portal sabe fazer (a tela só oferece isso). */
+  recursos: { adminPortal: boolean; estrela: boolean; ficha: CampoFicha[] | null };
 }
 export interface Resposta { status: number; corpo: Record<string, unknown> }
 
@@ -114,10 +131,12 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** O que a tela mostra: as pessoas (logins), os módulos e os perfis. */
 export async function listarAcessos(porta: PortaAcessos, agora = Date.now()): Promise<DadosAcessos> {
-  const [logins, linhas, perfis] = await Promise.all([
+  const verFicha = porta.ficha && !porta.escopo;
+  const [logins, linhas, perfis, fichas] = await Promise.all([
     porta.logins.listar(),
     porta.acessos.listar(),
     porta.perfis ? porta.perfis.listar().catch(() => null) : Promise.resolve(undefined),
+    verFicha ? porta.ficha!.ler().catch(() => ({}) as Record<string, Record<string, string | null>>) : Promise.resolve(undefined),
   ]);
   const modulos = porta.escopo ? porta.modulos.filter((m) => porta.escopo!.includes(m.key)) : porta.modulos;
   const chaves = new Set(modulos.map((m) => m.key));
@@ -129,13 +148,20 @@ export async function listarAcessos(porta: PortaAcessos, agora = Date.now()): Pr
     ativo: ativoAgora(u.banido_ate, agora),
     super_admin: eSuper(porta, u.email),
     admin_portal: linhas.some((l) => l.user_id === u.id && l.modulo === MODULO_PORTAL && l.papel === "admin"),
-    acessos: linhas.filter((l) => l.user_id === u.id && chaves.has(l.modulo)).map((l) => ({ modulo: l.modulo, papel: l.papel })),
+    acessos: linhas.filter((l) => l.user_id === u.id && chaves.has(l.modulo))
+      .map((l) => (l.admin_modulo ? { modulo: l.modulo, papel: l.papel, admin_modulo: true } : { modulo: l.modulo, papel: l.papel })),
+    ...(fichas ? { ficha: fichas[u.id] ?? {} } : {}),
   }));
   usuarios.sort((a, b) => (a.nome || a.email).localeCompare(b.nome || b.email, "pt-BR"));
   const dados: DadosAcessos = {
     usuarios,
     // Admin de módulo não dá o papel admin: a tela nem oferece.
     modulos: modulos.map((m) => ({ ...m, papeis: porta.escopo ? semAdmin(m) : papeisDe(m) })),
+    recursos: {
+      adminPortal: !porta.escopo && !!porta.acessos.marcarAdminPortal,
+      estrela: !porta.escopo && !!porta.acessos.marcarAdminModulo,
+      ficha: verFicha ? porta.ficha!.campos : null,
+    },
   };
   if (porta.escopo) dados.escopo = [...porta.escopo];
   else if (porta.perfis) dados.perfis = perfis ?? null;
@@ -236,11 +262,36 @@ async function tratar(porta: PortaAcessos, b: Record<string, unknown>): Promise<
     }
 
     case "admin_portal": {
+      if (!porta.acessos.marcarAdminPortal) return erro(400, "neste portal, o admin do portal é só a super-admin");
       const u = await alvo();
       if (!u) return erro(404, "usuário não encontrado");
       if (souEu) return erro(400, "ninguém muda o próprio admin do portal");
       if (eSuper(porta, u.email)) return erro(400, "a super-admin é admin do portal pelo e-mail");
       await porta.acessos.marcarAdminPortal(uid, !!b.valor);
+      return certo();
+    }
+
+    case "admin_modulo": {
+      if (!porta.acessos.marcarAdminModulo) return erro(400, "este portal não tem admin de módulo");
+      if (!uid || !modulo) return erro(400, "usuário ou módulo inválido");
+      if (souEu) return erro(400, "ninguém muda a própria ★");
+      const tem = (await porta.acessos.listar()).some((l) => l.user_id === uid && l.modulo === modulo.key);
+      if (!tem) return erro(400, `dê o acesso a ${modulo.label} primeiro`);
+      await porta.acessos.marcarAdminModulo(uid, modulo.key, !!b.valor);
+      return certo();
+    }
+
+    case "salvar_ficha": {
+      if (!porta.ficha) return erro(400, "este portal não guarda ficha");
+      if (!uid) return erro(400, "user_id obrigatório");
+      const dado = (b.ficha ?? {}) as Record<string, unknown>;
+      const valores: Record<string, string | null> = {};
+      for (const c of porta.ficha.campos) {
+        const v = String(dado[c.key] ?? "").trim();
+        valores[c.key] = !v ? null : c.tipo === "telefone" ? v.replace(/\D+/g, "") || null : v;
+        if (valores[c.key] && c.tipo === "data" && !/^\d{4}-\d{2}-\d{2}$/.test(valores[c.key]!)) return erro(400, `${c.label}: data inválida`);
+      }
+      await porta.ficha.salvar(uid, valores);
       return certo();
     }
 
@@ -285,8 +336,9 @@ async function travaEscopo(porta: PortaAcessos, escopo: string[], b: Record<stri
   if (!escopo.includes(modulo)) return erro(403, "você não administra este módulo");
   if (b.acao === "conceder_acesso" && String(b.papel) === "admin") return erro(403, "só o admin do portal dá o papel admin");
   const uid = String(b.user_id ?? "");
+  if (uid && uid === porta.euId) return erro(403, "o seu próprio acesso não se muda por aqui");
   const linhas = await porta.acessos.listar();
-  if (linhas.some((l) => l.user_id === uid && l.modulo === modulo && l.papel === "admin"))
+  if (linhas.some((l) => l.user_id === uid && l.modulo === modulo && (l.papel === "admin" || l.admin_modulo)))
     return erro(403, "só o admin do portal mexe em quem é admin deste módulo");
   return null;
 }
@@ -462,6 +514,6 @@ export function acessosFuncoes(sessao: Sb, servico: Sb, tabela = "user_modules")
     revogar: (user_id, modulo) =>
       chama("revogar_modulo", { p_user_id: user_id, p_modulo: modulo }, () => reserva.revogar(user_id, modulo)),
     marcarAdminPortal: (user_id, valor) =>
-      chama("marcar_admin_portal", { p_user_id: user_id, p_valor: valor }, () => reserva.marcarAdminPortal(user_id, valor)),
+      chama("marcar_admin_portal", { p_user_id: user_id, p_valor: valor }, () => reserva.marcarAdminPortal!(user_id, valor)),
   };
 }

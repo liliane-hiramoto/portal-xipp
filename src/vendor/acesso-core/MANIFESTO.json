@@ -1,10 +1,10 @@
 {
   "fonte": "liliane-hiramoto/acesso-core",
   "arquivos": {
-    "README.md": "c7b6f2d57dc9209bfb85f346c5cbc70ce9835ec4ef6b8a3007dd82f6f3f9a9df",
-    "acessos-tela.tsx": "79bc7cd1409cb6d32b66579acc2fd29ba30511575733e38ce7b6b48f2ce3b6c0",
-    "acessos.teste.mjs": "b32aade5941698b6f8299d8a7d559a7bbe65c0ca5b9999d17695c882dfdb0a02",
-    "acessos.ts": "422fd2fa56fc3fa12b77d8f3558c3bff89a706b75395e96d2369aacf427674eb",
+    "README.md": "a6d9e16dcfcd80a15a534e4dccd135fa00b14c8ff3cbc7b96fc407c6ccf331b4",
+    "acessos-tela.tsx": "fb5f333c63698ddd63e9ae92a8ed5515ccf44730dbee0efcf895fa7587535fdb",
+    "acessos.teste.mjs": "ef12adcb3eab4c9dba939f6748f02c1715bd0cc492ca6661495af0c0f3acb92e",
+    "acessos.ts": "372b4077a0d0d7ed50f3300a1fa9f25da040deed5f43e22a919655245e9f4ffc",
     "entrada.ts": "0364b659977ee096ba26228ba1cd20149ba75c91b6bc8581e4bda0fdada2153b",
     "inatividade.teste.mjs": "4b3c527c9052ac823b1530476aed45409c3d9c1d07a9274b792ec3392a87e31c",
     "inatividade.ts": "c973704dd0756e9dedc3237f8ce4daf52967fe444b9e40b8a792b211340341f2",

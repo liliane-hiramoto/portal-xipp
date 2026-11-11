@@ -122,8 +122,13 @@ Etapas 1 e 2 vieram JUNTAS (um SQL só):
   leitura sem o filtro e a gravação direta.
   ⚠️ Rodar de novo as migrações é seguro: a 0001, a 0013 e a 0014 só mexem em
   `user_modules` enquanto ela é TABELA (o `setup.sh` aplica o SETUP duas vezes).
-- A Etapa 3 (editar card pela tela) vai virar uma aba da tela única de Acessos
-  (acesso-core, `abasExtras`).
+- **Etapa 3 (0016): Acessos › aba Cards do menu** (`CardsMenu.tsx`, pendurada
+  na tela comum pelo `abasExtras` do acesso-core #10; rota `/api/admin/cards`):
+  nome, descrição, ícone, faixa, ordem e "mostrar no menu", só admin do portal.
+  Grava com a SESSÃO pela view; a 0016 libera UPDATE só nessas seis colunas e
+  quem decide é a RLS (`core.eh_admin_portal()`). ⚠️ Chave, endereço,
+  `sem_gate` e `so_admin` não se editam (`validarCard`, `src/lib/cards-menu.ts`;
+  teste `scripts/testar-cards-menu.mjs`, no CI).
 - Teste: `scripts/testar-modulos-db.mjs` (CI) e `supabase/testes/core_acessos.sh`.
 
 ## Kit de tela

@@ -14,11 +14,17 @@
 //
 // No portal (página do servidor, depois de conferir o admin):
 //   <TelaAcessos meuId={user.id} />
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
+// Aba do próprio portal (ex.: os Cards do menu), depois das comuns:
+//   <TelaAcessos meuId={user.id} abasExtras={[{ id: "cards", rotulo: "Cards do menu", conteudo: <CardsMenu /> }]} />
+// O endereço guarda a aba (?aba=x:cards).
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import type { DadosAcessos, Perfil, Pessoa } from "./acessos";
 
 type Acao = (payload: Record<string, unknown>, ok?: string) => Promise<Record<string, unknown> | null>;
-type Aba = "pessoas" | "modulos" | "perfis";
+type Aba = "pessoas" | "modulos" | "perfis" | `x:${string}`;
+
+/** Aba que o PORTAL pendura na tela (ex.: "Cards do menu"). O conteúdo é dele. */
+export interface AbaExtra { id: string; rotulo: string; conteudo: ReactNode }
 
 const ROTULO: Record<string, string> = { viewer: "Somente leitura", editor: "Editor", admin: "Admin" };
 const rotulo = (p: string) => ROTULO[p] ?? p;
@@ -55,7 +61,7 @@ const S = {
 };
 
 /** A tela inteira. `api` = a rota do portal; `meuId` = quem está logado. */
-export function TelaAcessos({ meuId, api = "/api/acessos", titulo = "Acessos" }: { meuId: string; api?: string; titulo?: string }) {
+export function TelaAcessos({ meuId, api = "/api/acessos", titulo = "Acessos", abasExtras = [] }: { meuId: string; api?: string; titulo?: string; /** abas do portal, depois das comuns */ abasExtras?: AbaExtra[] }) {
   const [aba, setAba] = useState<Aba>("pessoas");
   const [pessoa, setPessoa] = useState<string | null>(null);
   const [d, setD] = useState<DadosAcessos | null>(null);
@@ -74,6 +80,8 @@ export function TelaAcessos({ meuId, api = "/api/acessos", titulo = "Acessos" }:
 
   // ?aba= e ?pessoa= no endereço (link da aba "Por módulo", favorito). O
   // setState fica no callback, não no corpo do efeito.
+  // As abas do portal, como texto: a lista vem nova a cada render, o texto não.
+  const idsExtras = abasExtras.map((x) => `x:${x.id}`).join("|");
   useEffect(() => {
     let vivo = true;
     const q = new URLSearchParams(window.location.search);
@@ -81,11 +89,12 @@ export function TelaAcessos({ meuId, api = "/api/acessos", titulo = "Acessos" }:
       if (!vivo) return;
       const a = q.get("aba");
       if (a === "modulos" || a === "perfis") setAba(a);
+      else if (a && idsExtras.split("|").includes(a)) setAba(a as Aba);
       if (q.get("pessoa")) setPessoa(q.get("pessoa"));
       aplicar(r);
     });
     return () => { vivo = false; };
-  }, [buscar, aplicar]);
+  }, [buscar, aplicar, idsExtras]);
 
   const irPara = (a: Aba, p: string | null = null) => {
     setAba(a);
@@ -114,6 +123,9 @@ export function TelaAcessos({ meuId, api = "/api/acessos", titulo = "Acessos" }:
           <button type="button" style={S.aba(aba === "pessoas")} onClick={() => irPara("pessoas")}>Pessoas</button>
           <button type="button" style={S.aba(aba === "modulos")} onClick={() => irPara("modulos")}>Por módulo</button>
           {temPerfis && <button type="button" style={S.aba(aba === "perfis")} onClick={() => irPara("perfis")}>Perfis de acesso</button>}
+          {abasExtras.map((x) => (
+            <button key={x.id} type="button" style={S.aba(aba === `x:${x.id}`)} onClick={() => irPara(`x:${x.id}`)}>{x.rotulo}</button>
+          ))}
         </nav>
       </div>
       {msg && <div style={S.aviso(msg.ok)}>{msg.t}</div>}
@@ -123,7 +135,9 @@ export function TelaAcessos({ meuId, api = "/api/acessos", titulo = "Acessos" }:
           {d.modulos.length === 1 ? " esse módulo" : " esses módulos"}. Criar login, senha e o papel Admin ficam com o admin do portal.
         </div>
       )}
-      {!d ? (
+      {abasExtras.some((x) => `x:${x.id}` === aba) ? (
+        <div>{abasExtras.find((x) => `x:${x.id}` === aba)!.conteudo}</div>
+      ) : !d ? (
         <div style={{ padding: 40, textAlign: "center", color: C.cinza }}>{msg ? "" : "Carregando…"}</div>
       ) : aba === "modulos" ? (
         <PorModulo d={d} abrir={(id) => irPara("pessoas", id)} />
@@ -237,6 +251,9 @@ function Ficha({ u, d, acao, eu }: { u: Pessoa; d: DadosAcessos; acao: Acao; eu:
   const [email, setEmail] = useState(u.email);
   const [perfil, setPerfil] = useState("");
   const papelDe = (m: string) => u.acessos.find((a) => a.modulo === m)?.papel;
+  const estrela = (m: string) => !!u.acessos.find((a) => a.modulo === m)?.admin_modulo;
+  // Admin de módulo não mexe em quem administra o módulo (★ ou papel admin).
+  const travado = (m: string) => !!d.escopo && (papelDe(m) === "admin" || estrela(m));
   const com = d.modulos.filter((m) => papelDe(m.key));
   const sem = d.modulos.filter((m) => !papelDe(m.key));
   const perfis = (d.perfis ?? []).filter((p) => p.ativo);
@@ -296,7 +313,7 @@ function Ficha({ u, d, acao, eu }: { u: Pessoa; d: DadosAcessos; acao: Acao; eu:
         <div style={{ borderRadius: 8, border: `1px solid ${C.borda}`, background: "#f8fafc", padding: "8px 12px", color: "#475569" }}>
           Super-admin: vê e administra <b>todos</b> os módulos — não precisa de acesso módulo a módulo.
         </div>
-      ) : d.escopo ? null : (
+      ) : d.escopo || !d.recursos.adminPortal ? null : (
         <label style={{ ...LB, display: "flex", alignItems: "flex-start", gap: 8, borderRadius: 8, padding: "8px 12px", border: `1px solid ${u.admin_portal ? "#ddd6fe" : C.borda}`, background: u.admin_portal ? "#f5f3ff" : "#fff", opacity: eu ? 0.6 : 1 }}>
           <input type="checkbox" style={{ margin: "3px 0 0", width: "auto", padding: 0 }} checked={u.admin_portal} disabled={eu}
             onChange={(e) => {
@@ -313,6 +330,8 @@ function Ficha({ u, d, acao, eu }: { u: Pessoa; d: DadosAcessos; acao: Acao; eu:
           </span>
         </label>
       )}
+
+      {d.recursos.ficha && u.ficha && <FichaPessoa key={u.id} u={u} campos={d.recursos.ficha} acao={acao} />}
 
       {/* MÓDULOS — só o que a pessoa TEM */}
       {!u.super_admin && (
@@ -342,8 +361,17 @@ function Ficha({ u, d, acao, eu }: { u: Pessoa; d: DadosAcessos; acao: Acao; eu:
               {com.map((m, i) => (
                 <div key={m.key} style={{ ...S.linha, ...(i === 0 ? { borderTop: 0 } : {}) }}>
                   <span style={{ flex: "1 1 160px" }}>{m.label}</span>
-                  {d.escopo && papelDe(m.key) === "admin" ? (
-                    <span style={S.pequeno}>Admin — só o admin do portal muda</span>
+                  {d.recursos.estrela && (
+                    <button type="button" disabled={eu} title={eu ? "ninguém muda a própria ★" : estrela(m.key) ? "Administra este módulo: dá e tira o acesso de quem o usa. Clique para tirar." : "Tornar admin deste módulo: passa a dar e tirar o acesso de quem o usa."}
+                      style={{ ...S.botaoP, color: estrela(m.key) ? "#b45309" : C.cinza, borderColor: estrela(m.key) ? "#fcd34d" : "#cbd5e1", background: estrela(m.key) ? "#fffbeb" : "#fff", opacity: eu ? 0.5 : 1 }}
+                      onClick={() => {
+                        const v = !estrela(m.key);
+                        if (v && !confirm(`Tornar ${quem} ADMIN DE ${m.label}?\n\nA pessoa passa a dar e tirar o acesso de quem usa ${m.label} (sem o papel Admin).`)) return;
+                        acao({ acao: "admin_modulo", user_id: u.id, modulo: m.key, valor: v }, v ? `★ admin de ${m.label}.` : `Deixou de ser admin de ${m.label}.`);
+                      }}>{estrela(m.key) ? "★ admin do módulo" : "☆ admin do módulo"}</button>
+                  )}
+                  {travado(m.key) ? (
+                    <span style={S.pequeno}>{estrela(m.key) ? "★ " : ""}Admin — só o admin do portal muda</span>
                   ) : m.papeis.length > 1 ? (
                     <select value={papelDe(m.key)} style={S.sel} onChange={(e) => acao({ acao: "conceder_acesso", user_id: u.id, modulo: m.key, papel: e.target.value })}>
                       {m.papeis.map((p) => <option key={p} value={p}>{rotulo(p)}</option>)}
@@ -351,7 +379,7 @@ function Ficha({ u, d, acao, eu }: { u: Pessoa; d: DadosAcessos; acao: Acao; eu:
                   ) : (
                     <span style={S.pequeno}>tem acesso</span>
                   )}
-                  {!(d.escopo && papelDe(m.key) === "admin") && (
+                  {!travado(m.key) && (
                     <button type="button" style={S.link("#dc2626")} onClick={() => { if (confirm(`Tirar o acesso de ${quem} a ${m.label}?`)) acao({ acao: "revogar_acesso", user_id: u.id, modulo: m.key }); }}>tirar</button>
                   )}
                 </div>
@@ -381,6 +409,29 @@ function Ficha({ u, d, acao, eu }: { u: Pessoa; d: DadosAcessos; acao: Acao; eu:
   );
 }
 
+/** A ficha da pessoa (o que o portal guarda além do login), editável pelo admin do portal. */
+function FichaPessoa({ u, campos, acao }: { u: Pessoa; campos: NonNullable<DadosAcessos["recursos"]["ficha"]>; acao: Acao }) {
+  const [v, setV] = useState<Record<string, string>>(() => Object.fromEntries(campos.map((c) => [c.key, u.ficha?.[c.key] ?? ""])));
+  const mudou = campos.some((c) => (u.ficha?.[c.key] ?? "") !== (v[c.key] ?? ""));
+  return (
+    <details style={{ border: `1px solid ${C.borda}`, borderRadius: 8, padding: "8px 12px" }}>
+      <summary style={{ cursor: "pointer", fontWeight: 500 }}>Ficha da pessoa</summary>
+      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", marginTop: 10 }}>
+        {campos.map((c) => (
+          <label key={c.key} style={S.lbl}><span style={S.rotulo}>{c.label}</span>
+            <input type={c.tipo === "data" ? "date" : c.tipo === "telefone" ? "tel" : "text"} value={v[c.key] ?? ""}
+              onChange={(e) => setV({ ...v, [c.key]: e.target.value })} style={S.campo} />
+          </label>
+        ))}
+      </div>
+      <div style={{ marginTop: 10 }}>
+        <button type="button" disabled={!mudou} style={{ ...S.botaoP, opacity: mudou ? 1 : 0.4 }}
+          onClick={() => acao({ acao: "salvar_ficha", user_id: u.id, ficha: v }, "Ficha salva.")}>Salvar ficha</button>
+      </div>
+    </details>
+  );
+}
+
 /** A pergunta inversa: quem enxerga cada módulo, e com que papel. */
 function PorModulo({ d, abrir }: { d: DadosAcessos; abrir: (id: string) => void }) {
   const todos = d.usuarios.filter((u) => u.super_admin || u.admin_portal);
@@ -392,7 +443,7 @@ function PorModulo({ d, abrir }: { d: DadosAcessos; abrir: (id: string) => void 
       <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
         {d.modulos.map((m) => {
           const quem = d.usuarios
-            .map((u) => ({ u, papel: u.acessos.find((a) => a.modulo === m.key)?.papel }))
+            .map((u) => ({ u, papel: u.acessos.find((a) => a.modulo === m.key)?.papel, estrela: !!u.acessos.find((a) => a.modulo === m.key)?.admin_modulo }))
             .filter((x) => x.papel && !x.u.super_admin && !x.u.admin_portal);
           return (
             <div key={m.key} style={{ ...S.cartao, padding: 16 }}>
@@ -404,12 +455,12 @@ function PorModulo({ d, abrir }: { d: DadosAcessos; abrir: (id: string) => void 
                 <p style={{ margin: 0, fontSize: 12, color: C.claro }}>Ninguém além dos admins do portal.</p>
               ) : (
                 <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-                  {quem.map(({ u, papel }) => (
+                  {quem.map(({ u, papel, estrela }) => (
                     <li key={u.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, color: u.ativo ? "#334155" : "#dc2626" }}>
                       <button type="button" onClick={() => abrir(u.id)} style={{ ...S.link(u.ativo ? "#334155" : "#dc2626"), fontSize: 14, textDecoration: "none", textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {u.nome || u.email}{u.ativo ? "" : " (inativo)"}
                       </button>
-                      {m.papeis.length > 1 && <span style={{ flexShrink: 0, ...S.pequeno }}>{rotulo(papel!)}</span>}
+                      <span style={{ flexShrink: 0, ...S.pequeno }}>{estrela ? "★ " : ""}{m.papeis.length > 1 ? rotulo(papel!) : ""}</span>
                     </li>
                   ))}
                 </ul>
