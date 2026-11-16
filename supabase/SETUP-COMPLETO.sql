@@ -1,7 +1,7 @@
 -- SETUP COMPLETO do portal fiscal — GERADO por scripts/montar-setup.mjs, não edite.
 -- Cole tudo no Supabase › SQL Editor do portal novo e clique em Run (uma vez).
--- Junta, na ordem: 0001_portal.sql, 0002_cadastro.sql, 0004_viewer_so_le.sql, 0005_senha_provisoria.sql, 0007_modulo_tributos.sql, 0008_cnpj_base.sql, 0009_modulo_y570.sql, 0010_y570_pdfs_e_cadastro.sql, 0011_consulta_cpf.sql, 0012_perfis_acesso.sql, 0013_admin_do_portal_separado.sql, 0014_core_modulos_acessos.sql, 0015_core_acessos_dono_unico.sql, 0016_core_modulos_cards.sql.
--- A última tabela que aparece é a conferência do catálogo de cards e acessos (6 · true · 1 · true · false).
+-- Junta, na ordem: 0001_portal.sql, 0002_cadastro.sql, 0004_viewer_so_le.sql, 0005_senha_provisoria.sql, 0007_modulo_tributos.sql, 0008_cnpj_base.sql, 0009_modulo_y570.sql, 0010_y570_pdfs_e_cadastro.sql, 0011_consulta_cpf.sql, 0012_perfis_acesso.sql, 0013_admin_do_portal_separado.sql, 0014_core_modulos_acessos.sql, 0015_core_acessos_dono_unico.sql, 0016_core_modulos_cards.sql, 0017_cadastro_core.sql.
+-- A última tabela que aparece é a conferência do cadastro de empresas (0 · true).
 
 -- ==================== 0001_portal.sql ====================
 create table if not exists public.profiles (
@@ -952,3 +952,26 @@ select has_column_privilege('authenticated', 'public.modulos', 'label', 'UPDATE'
        has_column_privilege('authenticated', 'public.modulos', 'so_admin', 'UPDATE') as mexe_em_quem_ve,
        has_table_privilege('anon', 'public.modulos', 'UPDATE')                        as anonimo_edita,
        has_table_privilege('authenticated', 'public.modulos', 'INSERT')               as cria_card;
+
+-- ==================== 0017_cadastro_core.sql ====================
+create or replace function public.tem_algum_acesso()
+returns boolean language sql stable security definer set search_path = public as $$
+  select public.eh_admin_portal()
+      or exists (select 1 from public.user_modules where user_id = auth.uid());
+$$;
+revoke all on function public.tem_algum_acesso() from public, anon;
+grant execute on function public.tem_algum_acesso() to authenticated;
+
+drop policy if exists grupos_sel   on public.grupos;
+drop policy if exists empresas_sel on public.empresas;
+create policy grupos_sel   on public.grupos   for select to authenticated using (public.tem_algum_acesso());
+create policy empresas_sel on public.empresas for select to authenticated using (public.tem_algum_acesso());
+
+alter table public.empresas add column if not exists cadastro jsonb;
+alter table public.empresas add column if not exists qsa jsonb;
+alter table public.empresas add column if not exists receita_atualizado_em timestamptz;
+
+select (select count(*) from pg_policies
+         where schemaname = 'public' and tablename in ('empresas', 'grupos') and qual = 'true') as abertas,
+       exists (select 1 from information_schema.columns
+                where table_schema = 'public' and table_name = 'empresas' and column_name = 'qsa') as receita;
