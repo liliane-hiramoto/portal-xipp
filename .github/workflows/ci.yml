@@ -42,6 +42,8 @@ jobs:
         run: npx tsc --noEmit
       - name: Acesso (espelho do acesso-core + testes)
         run: node --experimental-strip-types src/vendor/acesso-core/testar.mjs
+      - name: Cadastro (espelho do cadastro-core + testes)
+        run: node --experimental-strip-types src/vendor/cadastro-core/testar.mjs
       - name: Kit de tela (espelho do kit-core + testes)
         run: node --experimental-strip-types src/vendor/kit-core/testar.mjs
       - name: Rituais (espelho do fechamento-core + testes)

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Prova a 0017 (Rituais de Gestão neste portal) num Postgres DESCARTÁVEL —
+# Prova a 0018 (Rituais de Gestão neste portal) num Postgres DESCARTÁVEL —
 # nada aqui toca o Supabase. Aplica todas as migrações na ordem (com os default
-# privileges do Supabase ligados, como no core_acessos.sh) e a 0017 de novo
+# privileges do Supabase ligados, como no core_acessos.sh) e a 0018 de novo
 # (idempotência). A régua: lê quem tem o módulo `rituais` ou é admin do PORTAL;
 # grava editor/admin do módulo ou o admin do portal; leitura só lê.
 #
@@ -41,7 +41,7 @@ alter default privileges in schema public grant all on tables to anon, authentic
 grant all on storage.objects, storage.buckets to authenticated, anon;
 SQL
 
-for f in $(ls supabase/migrations/*.sql | sort) supabase/migrations/0017_rituais_de_gestao.sql; do
+for f in $(ls supabase/migrations/*.sql | sort) supabase/migrations/0018_rituais_de_gestao.sql; do
   case "$f" in *0006_empresa.sql) continue;; esac
   Q -f "$f" >/dev/null 2>"$DIR/err" || { echo "✗ aplicar $f"; cat "$DIR/err"; exit 1; }
 done
@@ -61,7 +61,7 @@ faz() { Q -tAc "set role authenticated; set request.jwt.claims = '{\"sub\":\"$1\
 grava() { if como "$1" "$2" "update public.rituais_acoes set andamento = 'AGUARDANDO' where id = 1 returning 'ok';" | grep -q ok; then echo sim; else echo nao; fi; }
 FALHAS=0
 confere() { if [ "$2" = "$3" ]; then echo "✓ $1: $2"; else echo "✗ $1: esperado $3, veio $2"; FALHAS=$((FALHAS+1)); fi; }
-confere "conferência da migração"            "$(Q -tAc "$(sed -n '/^-- Conferência/,$p' supabase/migrations/0017_rituais_de_gestao.sql | grep -v '^--')" | tail -1)" "6 · 6 · 2 · 1"
+confere "conferência da migração"            "$(Q -tAc "$(sed -n '/^-- Conferência/,$p' supabase/migrations/0018_rituais_de_gestao.sql | grep -v '^--')" | tail -1)" "6 · 6 · 2 · 1"
 confere "o card está na faixa Gestão"        "$(Q -tAc "select grupo from core.modulos where key = 'rituais'")" "Gestão"
 confere "editor dos rituais lê"              "$(como ${U}1 e@x.com 'select count(*) from public.rituais_acoes;')" 1
 confere "leitura lê"                         "$(como ${U}2 v@x.com 'select count(*) from public.rituais_reunioes;')" 1

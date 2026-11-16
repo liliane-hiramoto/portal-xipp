@@ -81,7 +81,7 @@ export const MODULOS: Modulo[] = [
     etiqueta: "pendente Serpro",
   },
   {
-    // Rituais de Gestão (0017, 16/11/2026, pedido dela) — o módulo canônico do
+    // Rituais de Gestão (0018, 16/11/2026, pedido dela) — o módulo canônico do
     // Portal Flórida (fechamento-core): o Checkpoint e as pendências deste
     // cliente. Tela deste app em /rituais; ponte com a Flórida em src/server.
     key: "rituais",

@@ -12,7 +12,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const TETO = { kpi: 4, janela: 2, dinheiro: 1 };
+const TETO = { kpi: 0, janela: 0, dinheiro: 0 };
 
 const REGRAS = {
   kpi: /\bfunction (Kpi|KpiL|Card|Cartao|Indicador|Numero|Resumo)\s*\(/g,

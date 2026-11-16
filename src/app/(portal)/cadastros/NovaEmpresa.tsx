@@ -2,22 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { excluirEmpresa, salvarEmpresa, type NovaEmpresa as Empresa } from "./actions";
+import { consultarReceita } from "@/vendor/cadastro-core/receita";
+import { cnpjValido } from "@/vendor/cadastro-core/documento";
 
-/** Consulta o CNPJ NO NAVEGADOR (a BrasilAPI recusa a chamada do servidor da
- *  Vercel — lição do Portal Flórida); se falhar, tenta a Minha Receita. */
-async function consultarReceita(cnpj: string): Promise<Record<string, unknown> | string> {
-  for (const url of [`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, `https://minhareceita.org/${cnpj}`]) {
-    try {
-      const r = await fetch(url, { headers: { accept: "application/json" } });
-      if (r.status === 404) return "A Receita não encontrou este CNPJ.";
-      if (r.ok) return (await r.json()) as Record<string, unknown>;
-    } catch {
-      /* tenta a próxima fonte */
-    }
-  }
-  return "A consulta da Receita falhou. Preencha à mão ou tente de novo em alguns minutos.";
-}
-
+// A consulta à Receita é a do cadastro-core (item 11): no NAVEGADOR (a
+// BrasilAPI recusa o servidor da Vercel), com a Minha Receita de reserva.
 const s = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : "");
 
 export default function NovaEmpresa() {
@@ -27,13 +16,14 @@ export default function NovaEmpresa() {
 
   const buscar = () => start(async () => {
     setMsg(null);
-    const d = f.cnpj.replace(/\D/g, "");
-    if (d.length !== 14) { setMsg({ ok: false, t: "Digite o CNPJ com 14 dígitos." }); return; }
-    const j = await consultarReceita(d);
-    if (typeof j === "string") { setMsg({ ok: false, t: j }); return; }
+    if (!cnpjValido(f.cnpj)) { setMsg({ ok: false, t: "CNPJ inválido: confira os dígitos." }); return; }
+    const r = await consultarReceita(f.cnpj);
+    if (!r.ok) { setMsg({ ok: false, t: r.erro }); return; }
+    const j = r.json;
     const simples = j.opcao_pelo_simples;
     setF((x) => ({
       ...x,
+      receita: j,
       razao_social: s(j.razao_social),
       nome_fantasia: s(j.nome_fantasia),
       apelido: x.apelido || s(j.nome_fantasia) || s(j.razao_social).split(" ").slice(0, 2).join(" "),
@@ -60,7 +50,7 @@ export default function NovaEmpresa() {
         <label className="text-xs text-slate-500">
           CNPJ
           <div className="flex gap-2">
-            <input value={f.cnpj} onChange={(e) => setF({ ...f, cnpj: e.target.value })} placeholder="00.000.000/0000-00" className={campo} />
+            <input value={f.cnpj} onChange={(e) => setF({ ...f, cnpj: e.target.value, receita: null })} placeholder="00.000.000/0000-00" className={campo} />
             <button type="button" onClick={buscar} disabled={rodando} className="mt-1 shrink-0 rounded-lg border border-slate-300 px-3 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50">
               Receita
             </button>

@@ -1,5 +1,5 @@
 -- ============================================================================
--- 0017 — RITUAIS DE GESTÃO neste portal (16/11/2026)
+-- 0018 — RITUAIS DE GESTÃO neste portal (16/11/2026)
 --
 -- Pedido dela: "CTESK e Xipp add Rituais de Gestão (canônico)". É o módulo
 -- canônico do Portal Flórida, o mesmo do RQ, WR, Inexx e 3Clicks: o Checkpoint

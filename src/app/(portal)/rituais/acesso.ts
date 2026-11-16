@@ -3,7 +3,7 @@ import { ehAdmin } from "@/lib/papel";
 
 /**
  * Quem entra nos Rituais de Gestão: quem tem o módulo 'rituais' (Acessos) ou o
- * admin do portal — a mesma régua de rituais_le() no banco (0017). Devolve o
+ * admin do portal — a mesma régua de rituais_le() no banco (0018). Devolve o
  * nome de quem está logado (vai como autor da anotação), ou null.
  */
 export async function quemPodeRituais(): Promise<{ nome: string; email: string } | null> {
