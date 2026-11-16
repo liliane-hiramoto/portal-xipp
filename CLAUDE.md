@@ -39,7 +39,7 @@ Hub com cards por módulo (`src/components/PortalHub.tsx`):
 | Consulta CNPJ e SN | `/cnpj` | app compartilhado `cnpj-base-web`; base no banco do portal (`/api/cnpj-base`) |
 | Y570 · ECF | `/y570` | app compartilhado `y570-app`; histórico e PDFs no banco do portal (`/api/y570-base`) |
 | Consulta CPF | `/cpf` | deste app; Serpro v3 (CPF + nascimento), chaves só no servidor. **Card FECHADO, "pendente Serpro"** (01/11/2026, pedido dela) — ⚠️ o que ela quer é o município da pessoa, e a v3 não devolve endereço |
-| Cadastros | `/cadastros` | todo logado lê; admin inclui/exclui empresa (Receita preenche) |
+| Cadastros | `/cadastros` | lê quem tem acesso ao portal (0017); admin inclui/exclui empresa (Receita preenche, e o Cartão CNPJ e os sócios ficam guardados) |
 | Acessos | `/acessos` | só admin; o modelo da Flórida (01/11/2026): **Pessoas** (lista + ficha do login), **Por módulo** e **Perfis de acesso** (0012). `/admin` redireciona para cá. **A tela e as travas vêm do `acesso-core`** (`acessos-tela.tsx`/`acessos.ts`, 11/11/2026 — a mesma em todo portal); aqui só a porta, em `api/acessos/route.ts` |
 
 **Identidade** = `src/config/portal.ts` + as 6 cores de `:root` em
@@ -168,3 +168,18 @@ todos os portais).** `<MenuCards>` do `kit-core` (`menu-cards.tsx`, regra em
 tem de dizer a faixa (o tipo exige). A ordem de cada pessoa fica no
 `user_metadata.menu_cards` da conta dela — preferência de tela, não acesso:
 quem vê qual card continua decidido pelo `temAcesso`.
+
+**Cadastro de empresas pelo `cadastro-core` (0017, 16/11/2026 — item 11).**
+Peça comum `liliane-hiramoto/cadastro-core`, espelho em
+`src/vendor/cadastro-core/` (não edite; o CI roda o `testar.mjs`), a mesma do
+RQ, da Inexx, do 3Clicks, da WR, da Affix e da Benevix:
+- **Leitura fechada**: a 0002 abria `empresas` e `grupos` a QUALQUER conta
+  logada (`using (true)`); a 0017 troca por `tem_algum_acesso()` = admin do
+  portal ou alguma linha em `user_modules`. O Tributos e o Y570 leem com a
+  sessão de quem tem o módulo deles. Provado em `supabase/testes/empresas.sh`.
+- **CNPJ pelo dígito verificador** (aceita o alfanumérico) no `salvarEmpresa`
+  e na tela; a consulta à Receita é a `consultarReceita` do core.
+- **Cartão CNPJ e QSA guardados** (`cadastro`, `qsa`, `receita_atualizado_em`)
+  quando a resposta é do MESMO CNPJ (`respostaDaEmpresa`). A lista mostra os sócios.
+- ⚠️ O SETUP-COMPLETO termina agora na conferência da 0017 (`0 · true`).
+

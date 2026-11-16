@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ehAdmin } from "@/lib/papel";
+import { cnpjValido, formatarDoc } from "@/vendor/cadastro-core/documento";
+import { mapearReceita, respostaDaEmpresa } from "@/vendor/cadastro-core/receita";
 
 // Cadastro de empresas do portal. A tabela `empresas` só tem política de
 // LEITURA (0002): quem grava é o servidor, com a service role, DEPOIS de
@@ -19,30 +21,41 @@ export type NovaEmpresa = {
   regime?: string | null;
   optante_simples?: boolean | null;
   endereco?: string | null;
+  /** O JSON que a Receita devolveu no navegador (BrasilAPI / Minha Receita):
+   *  o Cartão CNPJ e o QSA vão para `cadastro`/`qsa` (0017), depois de a
+   *  action conferir que ele é do MESMO CNPJ — senão é ignorado. */
+  receita?: Record<string, unknown> | null;
 };
 
-const soDigitos = (s: string) => s.replace(/\D/g, "");
-const fmtCnpj = (d: string) => `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
 const txt = (v: unknown, max = 200) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
 
 export async function salvarEmpresa(e: NovaEmpresa): Promise<{ ok: true } | { ok: false; erro: string }> {
   if (!(await ehAdmin())) return { ok: false, erro: "Só o admin do portal cadastra empresa." };
-  const d = soDigitos(e.cnpj ?? "");
-  if (d.length !== 14) return { ok: false, erro: "CNPJ com 14 dígitos." };
+  // CNPJ pelo dígito verificador (cadastro-core, item 11): aceita o CNPJ
+  // alfanumérico, e um "=" no lugar do "-" não passa por ter 14 dígitos.
+  if (!cnpjValido(e.cnpj)) return { ok: false, erro: "CNPJ inválido: confira os dígitos." };
+  const cnpj = formatarDoc(e.cnpj);
   const sb = createAdminClient();
-  const { error } = await sb.from("empresas").upsert(
-    {
-      cnpj: fmtCnpj(d),
-      apelido: txt(e.apelido, 60),
-      razao_social: txt(e.razao_social),
-      nome_fantasia: txt(e.nome_fantasia),
-      situacao: txt(e.situacao, 40),
-      regime: txt(e.regime, 40),
-      optante_simples: typeof e.optante_simples === "boolean" ? e.optante_simples : null,
-      endereco: txt(e.endereco, 300),
-    },
-    { onConflict: "cnpj" },
-  );
+  const row: Record<string, unknown> = {
+    cnpj,
+    apelido: txt(e.apelido, 60),
+    razao_social: txt(e.razao_social),
+    nome_fantasia: txt(e.nome_fantasia),
+    situacao: txt(e.situacao, 40),
+    regime: txt(e.regime, 40),
+    optante_simples: typeof e.optante_simples === "boolean" ? e.optante_simples : null,
+    endereco: txt(e.endereco, 300),
+  };
+  const receita = e.receita && respostaDaEmpresa(cnpj, e.receita) ? mapearReceita(e.receita) : null;
+  const comReceita = receita
+    ? { ...row, cadastro: receita.cadastro, qsa: receita.qsa, receita_atualizado_em: new Date().toISOString() }
+    : row;
+  let { error } = await sb.from("empresas").upsert(comReceita, { onConflict: "cnpj" });
+  // Sem a 0017 (colunas da Receita), grava o resto: a empresa não pode ficar
+  // de fora do cadastro por causa do Cartão CNPJ.
+  if (error && receita && /cadastro|qsa|receita_atualizado_em|schema cache/.test(error.message)) {
+    ({ error } = await sb.from("empresas").upsert(row, { onConflict: "cnpj" }));
+  }
   if (error) return { ok: false, erro: error.message };
   revalidatePath("/cadastros");
   return { ok: true };

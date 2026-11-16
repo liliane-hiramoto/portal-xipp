@@ -1,0 +1,13 @@
+{
+  "fonte": "liliane-hiramoto/cadastro-core",
+  "arquivos": {
+    "README.md": "db6666ed2049a862c5af97b0ab965704c9baafd808c2f7cbc16e3e4dc4a967c7",
+    "cadastro.teste.mjs": "2e6ed0316f62db93dbe797a6f1d85d7ea30ecfb7e3f7edf39da0b8ef4db93c69",
+    "conta.ts": "e3e2b2645b037860184f19dac63d774f375200a66f49843ceb22ea1e9832183d",
+    "documento.ts": "4ac72443b92bd09be29a340d52f400cfe52ebd8987c83ffccd8f9fce1f5b0215",
+    "etiquetas.ts": "3e058b559caac0d60681839089135c29a6aa9a18c124b6508c399f5ec060947b",
+    "receita.ts": "57ba95d3f8edf0d857058fac5e134da2804ab0755d80562e582742af2a7381ba",
+    "testar.mjs": "3c4b51a7a98c1b5a7f4f3d26bc2749e18dc2d0fcb475530e639b2d8c2a8d0479",
+    "vigencia.ts": "8886363b129cfed3b2908328ec4a71e29959a3d7bf0cba51b8d9558c39fa96d9"
+  }
+}

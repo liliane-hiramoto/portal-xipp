@@ -4,7 +4,8 @@ import ModuloTopbar from "@/components/ModuloTopbar";
 import { ehAdmin } from "@/lib/papel";
 import NovaEmpresa, { BotaoExcluir } from "./NovaEmpresa";
 
-// Cadastro de empresas do portal. Todo logado LÊ; só o admin inclui e exclui
+// Cadastro de empresas do portal. Quem tem acesso ao portal LÊ (0017:
+// tem_algum_acesso — antes, qualquer logado); só o admin inclui e exclui
 // (actions.ts, com a service role depois de ehAdmin()). O Y570 só aceita PDF de
 // empresa cadastrada aqui (0010).
 export default async function CadastrosPage() {
@@ -12,10 +13,12 @@ export default async function CadastrosPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: empresas } = await supabase
-    .from("empresas")
-    .select("cnpj,apelido,razao_social,regime,situacao,fonte,grupo_id")
-    .order("apelido");
+  // O QSA (sócios, da Receita) entrou na 0017; sem ela, a lista sai sem a coluna.
+  const COLS = "cnpj,apelido,razao_social,regime,situacao,fonte,grupo_id";
+  type Linha = { cnpj: string; apelido: string | null; razao_social: string | null; regime: string | null; situacao: string | null; fonte: string | null; grupo_id: number | null; qsa?: unknown };
+  const com = await supabase.from("empresas").select(`${COLS},qsa`).order("apelido");
+  const empresas = (com.error ? (await supabase.from("empresas").select(COLS).order("apelido")).data : com.data) as Linha[] | null;
+  const socios = (q: unknown) => (Array.isArray(q) ? (q as { nome?: string }[]).map((x) => x?.nome).filter(Boolean).join(", ") : "");
   const { data: grupos } = await supabase.from("grupos").select("id,nome");
   const grupoNome = (id: number | null) => grupos?.find((g) => g.id === id)?.nome ?? "—";
   const admin = await ehAdmin();
@@ -42,6 +45,7 @@ export default async function CadastrosPage() {
                 <th className="px-4 py-2 font-medium">CNPJ</th>
                 <th className="px-4 py-2 font-medium">Regime</th>
                 <th className="px-4 py-2 font-medium">Situação</th>
+                <th className="px-4 py-2 font-medium">Sócios (Receita)</th>
                 {admin && <th className="px-4 py-2" />}
               </tr>
             </thead>
@@ -54,12 +58,13 @@ export default async function CadastrosPage() {
                   <td className="px-4 py-2.5 text-slate-600">{e.cnpj}</td>
                   <td className="px-4 py-2.5 text-slate-600">{e.regime ?? "—"}</td>
                   <td className="px-4 py-2.5 text-slate-600">{e.situacao ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-500">{socios(e.qsa) || "—"}</td>
                   {admin && <td className="px-4 py-2.5 text-right"><BotaoExcluir cnpj={e.cnpj} nome={e.razao_social || e.apelido || e.cnpj} /></td>}
                 </tr>
               ))}
               {(empresas ?? []).length === 0 && (
                 <tr>
-                  <td colSpan={admin ? 7 : 6} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={admin ? 8 : 7} className="px-4 py-8 text-center text-slate-400">
                     Nenhuma empresa cadastrada ainda.
                   </td>
                 </tr>
