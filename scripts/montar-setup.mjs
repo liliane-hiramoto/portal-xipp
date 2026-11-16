@@ -21,7 +21,7 @@ const partes = arquivos.map((f) => `-- ==================== ${f} ===============
 const texto = `-- SETUP COMPLETO do portal fiscal — GERADO por scripts/montar-setup.mjs, não edite.
 -- Cole tudo no Supabase › SQL Editor do portal novo e clique em Run (uma vez).
 -- Junta, na ordem: ${arquivos.join(", ")}.
--- A última tabela que aparece é a conferência do catálogo de cards e acessos (6 · true · 1 · true · false).
+-- A última tabela que aparece é a conferência dos Rituais de Gestão (6 · 6 · 2 · 1).
 
 ${partes.join("\n")}`;
 

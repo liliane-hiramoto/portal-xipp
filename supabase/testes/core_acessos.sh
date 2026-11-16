@@ -48,7 +48,7 @@ SQL
 U=00000000-0000-0000-0000-00000000000
 # Antes da 0016: o banco de hoje (todas as migrações até a 0013), com gente.
 for f in $(ls supabase/migrations/*.sql | sort); do
-  case "$f" in *0006_empresa.sql|*0016_core_modulos_cards.sql|*0015_core_acessos_dono_unico.sql|*0014_core_modulos_acessos.sql) continue;; esac
+  case "$f" in *0006_empresa.sql|*0016_core_modulos_cards.sql|*0015_core_acessos_dono_unico.sql|*0014_core_modulos_acessos.sql|*0017_rituais_de_gestao.sql) continue;; esac
   Q -f "$f" >/dev/null 2>"$DIR/err" || { echo "✗ aplicar $f"; cat "$DIR/err"; exit 1; }
 done
 Q <<SQL >/dev/null || { echo "✗ cenário"; exit 1; }

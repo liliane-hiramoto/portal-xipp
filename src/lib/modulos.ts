@@ -26,7 +26,7 @@ export const ZONAS = ["/tributos", "/cnpj", "/y570"];
 // As faixas do menu principal (10/11/2026, pedido dela para todos os portais:
 // separar os cards por assunto). A ordem é a padrão; cada pessoa reorganiza em
 // "⇅ Organizar" e a ordem dela fica na conta (kit-core, menu-cards.tsx).
-export const FAIXAS = ["Fiscal", "Configurações"] as const;
+export const FAIXAS = ["Fiscal", "Gestão", "Configurações"] as const;
 export type Faixa = (typeof FAIXAS)[number];
 
 export const MODULOS: Modulo[] = [
@@ -79,6 +79,18 @@ export const MODULOS: Modulo[] = [
     desc: "Situação cadastral do CPF na Receita (Serpro): nome, nome social, nascimento e situação. Consulta por CPF + data de nascimento.",
     ready: false,
     etiqueta: "pendente Serpro",
+  },
+  {
+    // Rituais de Gestão (0017, 16/11/2026, pedido dela) — o módulo canônico do
+    // Portal Flórida (fechamento-core): o Checkpoint e as pendências deste
+    // cliente. Tela deste app em /rituais; ponte com a Flórida em src/server.
+    key: "rituais",
+    faixa: "Gestão",
+    href: "/rituais",
+    icon: "📌",
+    titulo: "Rituais de Gestão",
+    desc: "As pendências combinadas com a Flórida nos Checkpoints: quem responde, o prazo e com quem está a bola.",
+    ready: true,
   },
   {
     key: "cadastros",

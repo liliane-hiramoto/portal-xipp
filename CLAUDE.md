@@ -40,6 +40,7 @@ Hub com cards por módulo (`src/components/PortalHub.tsx`):
 | Y570 · ECF | `/y570` | app compartilhado `y570-app`; histórico e PDFs no banco do portal (`/api/y570-base`) |
 | Consulta CPF | `/cpf` | deste app; Serpro v3 (CPF + nascimento), chaves só no servidor. **Card FECHADO, "pendente Serpro"** (01/11/2026, pedido dela) — ⚠️ o que ela quer é o município da pessoa, e a v3 não devolve endereço |
 | Cadastros | `/cadastros` | todo logado lê; admin inclui/exclui empresa (Receita preenche) |
+| Rituais de Gestão | `/rituais` | deste app; o módulo canônico da Flórida (`fechamento-core`): Checkpoint e pendências do cliente (0017, ver abaixo) |
 | Acessos | `/acessos` | só admin; o modelo da Flórida (01/11/2026): **Pessoas** (lista + ficha do login), **Por módulo** e **Perfis de acesso** (0012). `/admin` redireciona para cá. **A tela e as travas vêm do `acesso-core`** (`acessos-tela.tsx`/`acessos.ts`, 11/11/2026 — a mesma em todo portal); aqui só a porta, em `api/acessos/route.ts` |
 
 **Identidade** = `src/config/portal.ts` + as 6 cores de `:root` em
@@ -161,9 +162,44 @@ Tela nova usa o kit (`<Kpi>`, `<Tabela>`, `<Aba>`/`<TiraAbas>`…).
 - Instância do Tributos: `xipp-tributos-web` (`tributosApp` no `portal.ts`).
 - Supabase e Vercel próprios (`portal-xipp`), região São Paulo.
 
+## Rituais de Gestão (0017, 16/11/2026 — pedido dela: "CTESK e Xipp add Rituais de Gestão (canônico)")
+O módulo canônico do Portal Flórida, o MESMO do RQ, WR, Inexx e 3Clicks: o
+Checkpoint deste cliente e as pendências combinadas nele. Card "Rituais de
+Gestão" na faixa nova **Gestão**; tela `/rituais` deste app.
+- **Pacote `liliane-hiramoto/fechamento-core`**, espelho em
+  `src/vendor/fechamento-core/` (não edite; o CI roda o `testar.mjs`). Aqui
+  só os Rituais: este portal NÃO tem o Cronograma de fechamento.
+- **Adaptador igual nos portais**: `src/server/rituais.ts` e `rituais-tela.ts`,
+  e a tela `src/lib/fechamento-florida/PendenciasFlorida.tsx` (cópias do WR).
+  `src/server/fechamento.ts` aqui tem só a parte comum (service role, chave da
+  Flórida, `todas`); nos portais com Cronograma ele tem também o adaptador do
+  cronograma. A única troca nas cópias: `pessoas.ts` mora em
+  `src/app/(portal)/api/fechamento-core/` (as rotas deste app ficam no grupo
+  `(portal)`), e o import do `rituais-tela.ts` aponta para lá.
+- **Duas fases, troca sozinha**: até a Flórida "levar os Rituais" (Fechamento ›
+  Portais dos clientes), a tela lê e grava no Portal Flórida pela ponte
+  (`/api/rituais/portal` de lá); depois, neste banco (tabelas da 0017), e a
+  Flórida copia a cada 15 min pelas rotas
+  `/api/fechamento-core/rituais/{exportar,acao,importar}`. A importação deixa a
+  lápide `("reunioes", 0)` como marco da mudança, mesmo com 0 pendências.
+- **Variável na Vercel**: `FLORIDA_FECHAMENTO_TOKEN` — a chave que a Flórida gera
+  para este portal em Fechamento › Portais dos clientes (mostrada uma vez).
+  Sem ela, a tela diz que os Rituais ainda não foram ligados.
+- **Na abertura da tela**, o servidor manda à Flórida os usuários e as empresas
+  deste portal (quem pode ser responsável; o Cadastro, pelo CNPJ). Nos portais
+  com Cronograma isso sai da tela do Cronograma.
+- **Régua** (0017): lê = módulo `rituais` (qualquer papel) ou admin do PORTAL
+  (`rituais_le()`); grava = `pode_gravar_modulo('rituais')` (editor/admin do
+  módulo ou admin do portal). A tela grava com a service role e por isso
+  confere `rituais_grava()` antes (`mudarPendenciaNaTela`). O histórico só se
+  acrescenta (sem UPDATE/DELETE para `authenticated`). Provado em
+  `supabase/testes/rls_rituais.sh`.
+- ⚠️ O `portal-fiscal-modelo` ficou para trás (não tem as 0013–0016 nem esta):
+  Xipp e CTESK estão à frente dele.
+
 **Menu principal em faixas, com "⇅ Organizar" (10/11/2026 — pedido dela para
 todos os portais).** `<MenuCards>` do `kit-core` (`menu-cards.tsx`, regra em
-`menu-motor.ts`). Faixas padrão: Fiscal (Tributos, Consulta CNPJ, Y570, Consulta CPF) e Configurações (Cadastros, Acessos). A faixa em que cada card nasce está em
+`menu-motor.ts`). Faixas padrão: Fiscal (Tributos, Consulta CNPJ, Y570, Consulta CPF), Gestão (Rituais de Gestão, 0017) e Configurações (Cadastros, Acessos). A faixa em que cada card nasce está em
 `MODULOS` (`faixa`) e a ordem padrão em `FAIXAS` (`PortalHub.tsx`); card novo
 tem de dizer a faixa (o tipo exige). A ordem de cada pessoa fica no
 `user_metadata.menu_cards` da conta dela — preferência de tela, não acesso:
