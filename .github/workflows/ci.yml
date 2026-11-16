@@ -3,7 +3,7 @@
 #
 # Roda no GitHub, sem segredo nenhum e sem tocar a produção:
 #   1. tsc       — os tipos
-#   2. espelhos  — acesso-core e kit-core iguais à fonte, e os testes deles
+#   2. espelhos  — acesso-core, kit-core e fechamento-core iguais à fonte, e os testes deles
 #   3. serpro    — a leitura pura da Consulta CPF
 #   4. build     — o mesmo da Vercel, com variáveis de mentira
 #   5. RLS       — supabase/testes/*.sh num Postgres 16 descartável do runner
@@ -46,6 +46,8 @@ jobs:
         run: node --experimental-strip-types src/vendor/cadastro-core/testar.mjs
       - name: Kit de tela (espelho do kit-core + testes)
         run: node --experimental-strip-types src/vendor/kit-core/testar.mjs
+      - name: Rituais (espelho do fechamento-core + testes)
+        run: node --experimental-strip-types src/vendor/fechamento-core/testar.mjs
       - name: Teto de peças de tela à mão
         run: node scripts/conferir-kit.mjs
       - name: Consulta CPF (Serpro) — leitura pura da resposta

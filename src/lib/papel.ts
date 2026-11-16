@@ -18,6 +18,9 @@ export const MODULOS_ACESSO: { key: string; label: string }[] = [
   { key: "cnpj", label: "Consulta CNPJ + Simples Nacional" },
   { key: "y570", label: "Y570 · ECF" },
   { key: "cpf", label: "Consulta CPF" },
+  // Rituais de Gestão (0018, 16/11/2026): o Checkpoint e as pendências combinadas
+  // com a Flórida. Leitura vê; editor/admin cria, edita, anota e muda a situação.
+  { key: "rituais", label: "Rituais de Gestão" },
 ];
 
 // Papel do usuário logado num módulo qualquer (viewer | editor | admin), ou

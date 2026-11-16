@@ -1,0 +1,25 @@
+{
+  "fonte": "liliane-hiramoto/fechamento-core",
+  "arquivos": {
+    "consolidado.teste.mjs": "a92dad40e09394703e30f7a2e46625f75131c0b117795a0d80e38332b5d142aa",
+    "consolidado.ts": "a256e732e1b62c1c5a629b098481fb6a89e77cc7083b9f3a4eeccd0ba8c426e5",
+    "contrato.teste.mjs": "91174d5268ec94aad71150bb6c7cb06d9687d5186c57948957f1afdacc91de42",
+    "contrato.ts": "dce4fb0734615873f93e2cbde0db31bbe2bb31718cba2839b020da8017d5241a",
+    "copia.teste.mjs": "c8f597ee2047cdf8ec32ea53d8b39786692a631e750660460b3d5afb0f99de09",
+    "copia.ts": "c9ef2183fe1c019d02289cf8eb4c5060f415a162a9606f38ec90e1f777e48f64",
+    "etapas.teste.mjs": "a83e701f9f7574a81fc302d61202dcfb8e17c6ffad5e9b53b0869a2b07d39c6f",
+    "etapas.ts": "8c4edacedc897f425e267b2bce5f38d0449e66195dbd5e3d67df74a87f0e0e7c",
+    "mes.teste.mjs": "9655290fae60a95a85bea0a1f0a34dc8989955ae32556ede6ef15706436f941c",
+    "mes.ts": "71e4c761635521317ca379cbfcfe04ec7d1534d54dc0677591f10f4b84c6f56a",
+    "prazo.teste.mjs": "93e72c5f4715026d6f327cdcaa88b329648c76999172127927dda5ef14413bbf",
+    "prazo.ts": "6805393276f4dc4a068447a07144cfeb3d255f3c4659e57cc5b74cdd23e1314d",
+    "recorte.teste.mjs": "ac216bd6a16d468f964cd29f50aa957b90e2b2ce4e11a9004f54109d0c2b3a8c",
+    "recorte.ts": "ae13c5c20802d97b9a106059586a67cc77be40f2ae380343c160427e86261f55",
+    "rituais.teste.mjs": "005e77c64d11de39597bce97c666881644c27845ffe3b21f9357583e9617741e",
+    "rituais.ts": "1a4bdc7dfb348e8f5c41a835771c7dc5e5edb8ff9e29e2d2b823490d4b757683",
+    "sql/portal.sql": "4753b57600b01b9e1d85d06470747d0f2d77e2295ded11ef19cbcd1ddd857fb8",
+    "sql/rituais.sql": "43eb5f935a7135fb541cb9377ee42a08495f1c4540a5a37adf40d980c0fa5fbe",
+    "testar.mjs": "d8f4b3aac99accdd53314a219394524f08983a6c9951bb7ea7c4ca73d174d98d",
+    "tipos.ts": "16a4ec6c2c8ff2e2872ec89b1b87de634a0b64f66c86c05fa82f87d58ce777da"
+  }
+}

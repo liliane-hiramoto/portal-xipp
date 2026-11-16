@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ============================================================================
 // O Menu Principal lido do BANCO (Etapa 2 do catálogo, src/lib/modulos-db.ts).
-// (1) a semente da 0014 é a lista do código; (2) com o banco igual a ela, o menu
+// (1) a semente da 0014 (+ 0018) é a lista do código; (2) com o banco igual a ela, o menu
 // e quem vê o quê saem IDÊNTICOS aos de hoje; (3) banco mudo devolve o código;
 // (4) o banco nunca tira o "só admin" do código; (5) as leituras caem no
 // user_modules quando a view falta.
@@ -26,7 +26,9 @@ const ok = (nome, f) => { f(); n++; console.log("  ✓", nome); };
 const J = (x) => JSON.stringify(x);
 
 // A semente do SQL, lida do próprio arquivo.
-const sql = readFileSync(new URL("../supabase/migrations/0014_core_modulos_acessos.sql", import.meta.url), "utf8");
+// A 0014 plantou os seis primeiros; a 0018 (Rituais de Gestão) o sétimo.
+const sql = ["0014_core_modulos_acessos.sql", "0018_rituais_de_gestao.sql"]
+  .map((f) => readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), "utf8")).join("\n");
 const re = /\('([^']*)', '([^']*)', '([^']*)', '([^']*)', '([^']*)', '([^']*)', '([^']*)', (true|false), (true|false), (\d+)\)/g;
 const semente = [...sql.matchAll(re)].map((m) => ({
   key: m[1], label: m[2], descricao: m[3], emoji: m[4], href: m[5], grupo: m[6], status: m[7],
@@ -45,7 +47,7 @@ for (const m of MODULOS) ok(`${m.key}: nome, descrição, ícone, destino, faixa
 });
 
 const tela = (cs) => J(cs.map((m) => [m.key, m.titulo, m.desc, m.icon, m.href, m.faixa, m.ready, !!m.semGate, !!m.soAdmin]));
-const porFaixa = (cs) => J(["Fiscal", "Configurações"].map((f) => cs.filter((m) => m.faixa === f).map((m) => m.key)));
+const porFaixa = (cs) => J(["Fiscal", "Gestão", "Configurações"].map((f) => cs.filter((m) => m.faixa === f).map((m) => m.key)));
 console.log("\ncom o banco igual à semente, nada muda:");
 ok("os mesmos cards, na mesma ordem dentro de cada faixa", () => assert.equal(porFaixa(cardsDoMenu([...semente].reverse())), porFaixa(MODULOS)));
 ok("…com os mesmos textos", () => assert.equal(J(JSON.parse(tela(cardsDoMenu(semente))).sort()), J(JSON.parse(tela(MODULOS)).sort())));
